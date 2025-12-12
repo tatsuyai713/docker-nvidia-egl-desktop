@@ -1,6 +1,6 @@
 # docker-selkies-egl-desktop
 
-KDE Plasma Desktop container designed for Kubernetes, supporting OpenGL EGL and GLX, Vulkan, and Wine/Proton for NVIDIA GPUs through WebRTC and HTML5, providing an open-source remote cloud/HPC graphics or game streaming platform.
+KDE Plasma Desktop container designed for Kubernetes, supporting OpenGL EGL and GLX, Vulkan for NVIDIA GPUs through WebRTC and HTML5, providing an open-source remote cloud/HPC graphics or game streaming platform.
 
 ---
 
@@ -692,10 +692,6 @@ VIDEO_ENCODER=vah264enc ./start-container.sh none
 ```bash
 VIDEO_ENCODER=x264enc ./start-container.sh none
 ```
-
-### Wine and Gaming
-
-Wine, Winetricks, Lutris, and other gaming tools are pre-installed. You can run Windows applications and games directly.
 
 ### Mounting Additional Volumes
 
