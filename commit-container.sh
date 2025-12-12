@@ -4,8 +4,8 @@
 set -e
 
 CONTAINER_NAME="${CONTAINER_NAME:-devcontainer-egl-desktop-$(whoami)}"
-COMMIT_TAG="${COMMIT_TAG:-$(whoami)-$(date +%Y%m%d-%H%M%S)}"
-BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-devcontainer-ubuntu24.04-egl-desktop-base}"
+COMMIT_TAG="${COMMIT_TAG:-24.04-$(whoami)-$(date +%Y%m%d-%H%M%S)}"
+BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-devcontainer-ubuntu-egl-desktop}"
 
 echo "========================================"
 echo "Committing Container Changes"

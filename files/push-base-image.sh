@@ -4,9 +4,9 @@
 set -e
 
 DISTRIB_RELEASE="${DISTRIB_RELEASE:-24.04}"
-BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-devcontainer-ubuntu-egl-desktop-base}"
 REGISTRY="${REGISTRY:-ghcr.io}"
 GITHUB_USER="${GITHUB_USER:-tatsuyai713}"
+BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-${REGISTRY}/${GITHUB_USER}/devcontainer-ubuntu-egl-desktop-base}"
 PUSH_LATEST="${PUSH_LATEST:-false}"
 
 LOCAL_IMAGE="${BASE_IMAGE_NAME}:${DISTRIB_RELEASE}"

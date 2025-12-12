@@ -32,7 +32,7 @@ DISPLAY_MODE="${2:-selkies}"
 
 # Configuration
 CONTAINER_NAME="${CONTAINER_NAME:-devcontainer-egl-desktop-$(whoami)}"
-IMAGE_NAME="${IMAGE_NAME:-devcontainer-ubuntu24.04-egl-desktop-base:$(whoami)}"
+IMAGE_NAME="${IMAGE_NAME:-devcontainer-ubuntu-egl-desktop:24.04-$(whoami)}"
 ENABLE_HTTPS="${ENABLE_HTTPS:-false}"
 HTTPS_PORT="${HTTPS_PORT:-8080}"
 DETACHED="${DETACHED:-true}"

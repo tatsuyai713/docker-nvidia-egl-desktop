@@ -4,7 +4,7 @@ services:
     hostname: egl
     # Use user-specific image built with build-user-image.sh
     # Set USER_IMAGE environment variable before running docker-compose
-    image: ${USER_IMAGE:-devcontainer-ubuntu24.04-egl-desktop-base:${USER:-user}}
+    image: ${USER_IMAGE:-devcontainer-ubuntu-egl-desktop:24.04-${USER:-user}}
     runtime: nvidia
     ports:
     - '8080:8080'

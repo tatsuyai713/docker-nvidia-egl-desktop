@@ -1,0 +1,25 @@
+# SSL Certificates
+ssl/
+*.pem
+*.crt
+*.key
+*.csr
+*.p12
+*.pfx
+
+# Docker volumes
+*-vol/
+
+# Logs
+*.log
+nohup.out
+
+# Temporary files
+*.tmp
+*.bak
+*~
+.DS_Store
+
+# Environment files
+.env.local
+.env.*.local

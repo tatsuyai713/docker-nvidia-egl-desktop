@@ -3,11 +3,20 @@
 
 set -e
 
+# Parse command line arguments
+if [ $# -ge 1 ]; then
+    if [ "$1" = "JP" ] || [ "$1" = "jp" ]; then
+        IN_LOCALE="JP"
+    elif [ "$1" = "US" ] || [ "$1" = "us" ]; then
+        IN_LOCALE="US"
+    fi
+fi
+
 # Configuration
 BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-ghcr.io/tatsuyai713/devcontainer-ubuntu-egl-desktop-base}"
 BASE_IMAGE_TAG="${BASE_IMAGE_TAG:-24.04}"
-USER_IMAGE_NAME="${USER_IMAGE_NAME:-devcontainer-ubuntu-egl-desktop-base}"
-USER_IMAGE_TAG="${USER_IMAGE_TAG:-$(whoami)}"
+USER_IMAGE_NAME="${USER_IMAGE_NAME:-devcontainer-ubuntu-egl-desktop}"
+USER_IMAGE_TAG="${USER_IMAGE_TAG:-${BASE_IMAGE_TAG}-$(whoami)}"
 NO_CACHE="${NO_CACHE:-false}"
 
 # Locale configuration (set IN_LOCALE=JP for Japanese support)

@@ -1,8 +1,8 @@
 #!/bin/bash
 # Delete the user-specific image
 
-IMAGE_NAME="${IMAGE_NAME:-devcontainer-ubuntu24.04-egl-desktop-base}"
-IMAGE_TAG="${IMAGE_TAG:-$(whoami)}"
+IMAGE_NAME="${IMAGE_NAME:-devcontainer-ubuntu-egl-desktop}"
+IMAGE_TAG="${IMAGE_TAG:-24.04-$(whoami)}"
 FORCE="${FORCE:-false}"
 
 FULL_IMAGE_NAME="${IMAGE_NAME}:${IMAGE_TAG}"
