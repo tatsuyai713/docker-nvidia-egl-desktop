@@ -29,6 +29,9 @@ RUN groupadd -g ${USER_GID} ${USER_NAME} && \
     echo "${USER_NAME} ALL=(ALL:ALL) NOPASSWD: ALL" >> /etc/sudoers && \
     echo "${USER_NAME}:${USER_PASSWORD}" | chpasswd
 
+# Set timezone before installing packages
+RUN ln -snf "/usr/share/zoneinfo/${IN_TZ}" /etc/localtime && echo "${IN_TZ}" > /etc/timezone
+
 # Configure RIKEN mirror repository for faster downloads in Japan (JP locale only)
 RUN if [ "${IN_LOCALE}" = "JP" ]; then \
     if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then \
@@ -62,12 +65,10 @@ RUN if [ "${IN_LOCALE}" = "JP" ]; then \
     fi
 
 # Set locale environment variables
-ENV TZ=${IN_TZ}
-ENV LANG=${IN_LANG}
-ENV LANGUAGE=${IN_LANGUAGE}
-
-# Set timezone
-RUN ln -snf "/usr/share/zoneinfo/${IN_TZ}" /etc/localtime && echo "${IN_TZ}" > /etc/timezone
+ENV TZ=${IN_TZ} \
+    LANG=${IN_LANG} \
+    LANGUAGE=${IN_LANGUAGE} \
+    LC_ALL=${IN_LANG}
 
 # Configure NGINX to use user-writable config location as fallback
 # Create a script to handle NGINX config from user location
@@ -92,6 +93,8 @@ ENV PIPEWIRE_RUNTIME_DIR="${XDG_RUNTIME_DIR}"
 ENV PULSE_RUNTIME_PATH="${XDG_RUNTIME_DIR}/pulse"
 ENV PULSE_SERVER="unix:${XDG_RUNTIME_DIR}/pulse/native"
 ENV DBUS_SYSTEM_BUS_ADDRESS="unix:path=${XDG_RUNTIME_DIR}/dbus-system-bus"
+# Set user-specific DISPLAY number based on UID for multi-user environments
+ENV DISPLAY=":${USER_UID}"
 
 # Create user runtime directory
 RUN mkdir -p /tmp/runtime-${USER_NAME} && \
@@ -195,6 +198,74 @@ if ! shopt -oq posix; then\n\
 fi\n\
 ' > /home/${USER_NAME}/.bashrc && \
     chown ${USER_UID}:${USER_GID} /home/${USER_NAME}/.bashrc
+
+# Create XDG user directories
+RUN mkdir -p /home/${USER_NAME}/.config && \
+    mkdir -p /home/${USER_NAME}/Desktop && \
+    mkdir -p /home/${USER_NAME}/Downloads && \
+    mkdir -p /home/${USER_NAME}/Templates && \
+    mkdir -p /home/${USER_NAME}/Public && \
+    mkdir -p /home/${USER_NAME}/Documents && \
+    mkdir -p /home/${USER_NAME}/Music && \
+    mkdir -p /home/${USER_NAME}/Pictures && \
+    mkdir -p /home/${USER_NAME}/Videos
+
+# Configure XDG user directories
+RUN echo 'XDG_DESKTOP_DIR="$HOME/Desktop"' > /home/${USER_NAME}/.config/user-dirs.dirs && \
+    echo 'XDG_DOWNLOAD_DIR="$HOME/Downloads"' >> /home/${USER_NAME}/.config/user-dirs.dirs && \
+    echo 'XDG_TEMPLATES_DIR="$HOME/Templates"' >> /home/${USER_NAME}/.config/user-dirs.dirs && \
+    echo 'XDG_PUBLICSHARE_DIR="$HOME/Public"' >> /home/${USER_NAME}/.config/user-dirs.dirs && \
+    echo 'XDG_DOCUMENTS_DIR="$HOME/Documents"' >> /home/${USER_NAME}/.config/user-dirs.dirs && \
+    echo 'XDG_MUSIC_DIR="$HOME/Music"' >> /home/${USER_NAME}/.config/user-dirs.dirs && \
+    echo 'XDG_PICTURES_DIR="$HOME/Pictures"' >> /home/${USER_NAME}/.config/user-dirs.dirs && \
+    echo 'XDG_VIDEOS_DIR="$HOME/Videos"' >> /home/${USER_NAME}/.config/user-dirs.dirs
+
+# Disable beep sound
+RUN echo "set bell-style none" >> /home/${USER_NAME}/.inputrc
+
+# Create Desktop shortcuts
+RUN echo '[Desktop Entry]' > /home/${USER_NAME}/Desktop/home.desktop && \
+    echo 'Encoding=UTF-8' >> /home/${USER_NAME}/Desktop/home.desktop && \
+    echo 'Name=Home' >> /home/${USER_NAME}/Desktop/home.desktop && \
+    echo 'GenericName=Personal Files' >> /home/${USER_NAME}/Desktop/home.desktop && \
+    echo 'URL[$e]=$HOME' >> /home/${USER_NAME}/Desktop/home.desktop && \
+    echo 'Icon=user-home' >> /home/${USER_NAME}/Desktop/home.desktop && \
+    echo 'Type=Link' >> /home/${USER_NAME}/Desktop/home.desktop
+
+RUN echo '[Desktop Entry]' > /home/${USER_NAME}/Desktop/trash.desktop && \
+    echo 'Name=Trash' >> /home/${USER_NAME}/Desktop/trash.desktop && \
+    echo 'Comment=Contains removed files' >> /home/${USER_NAME}/Desktop/trash.desktop && \
+    echo 'Icon=user-trash-full' >> /home/${USER_NAME}/Desktop/trash.desktop && \
+    echo 'EmptyIcon=user-trash' >> /home/${USER_NAME}/Desktop/trash.desktop && \
+    echo 'URL=trash:/' >> /home/${USER_NAME}/Desktop/trash.desktop && \
+    echo 'Type=Link' >> /home/${USER_NAME}/Desktop/trash.desktop
+
+# Configure Chrome to run without sandbox permanently (survives updates)
+# Place wrapper in /usr/local/bin which takes precedence over /usr/bin in PATH
+RUN if [ -f /usr/bin/google-chrome-stable ]; then \
+    echo '#!/bin/bash' > /usr/local/bin/google-chrome-stable && \
+    echo '# Wrapper script to run Chrome without sandbox (required for containerized environments)' >> /usr/local/bin/google-chrome-stable && \
+    echo '# Chrome updates will not affect this wrapper as it is in /usr/local/bin' >> /usr/local/bin/google-chrome-stable && \
+    echo 'exec /usr/bin/google-chrome-stable --no-sandbox "$@"' >> /usr/local/bin/google-chrome-stable && \
+    chmod 755 /usr/local/bin/google-chrome-stable; \
+    fi
+
+# Also create wrappers for other Chrome binaries
+RUN for chrome_bin in google-chrome google-chrome-beta google-chrome-unstable; do \
+    if [ -f /usr/bin/${chrome_bin} ]; then \
+        echo '#!/bin/bash' > /usr/local/bin/${chrome_bin} && \
+        echo "exec /usr/bin/${chrome_bin} --no-sandbox \"\$@\"" >> /usr/local/bin/${chrome_bin} && \
+        chmod 755 /usr/local/bin/${chrome_bin}; \
+    fi; \
+    done
+
+# Update desktop file to use the wrapper
+RUN if [ -f /usr/share/applications/google-chrome.desktop ]; then \
+    sed -i -e "s#Exec=/usr/bin/google-chrome-stable#Exec=/usr/local/bin/google-chrome-stable#g" /usr/share/applications/google-chrome.desktop; \
+    fi
+
+# Set ownership of all user files
+RUN chown -R ${USER_UID}:${USER_GID} /home/${USER_NAME}
 
 # Switch to user (use username to enable supplementary groups like ssl-cert)
 USER ${USER_NAME}

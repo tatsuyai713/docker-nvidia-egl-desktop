@@ -10,7 +10,8 @@ set -e
 until [ -d "${XDG_RUNTIME_DIR}" ]; do sleep 0.5; done
 
 # Set default display
-export DISPLAY="${DISPLAY:-:20}"
+# Use DISPLAY from environment (set per-user in Dockerfile.user)
+export DISPLAY="${DISPLAY}"
 # PipeWire-Pulse server socket path
 export PIPEWIRE_LATENCY="128/48000"
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp}"
@@ -27,7 +28,7 @@ yq -i "
 .command_line.prompt = false |
 .desktop.resolution.width = ${DISPLAY_SIZEW} |
 .desktop.resolution.height = ${DISPLAY_SIZEH} |
-.desktop.allow_resize = $(echo ${SELKIES_ENABLE_RESIZE-false} | tr '[:upper:]' '[:lower:]') |
+.desktop.allow_resize = $(echo ${SELKIES_ENABLE_RESIZE:-true} | tr '[:upper:]' '[:lower:]') |
 .desktop.pixel_depth = ${DISPLAY_CDEPTH} |
 .encoding.rect_encoding_mode.rectangle_compress_threads = ${KASMVNC_THREADS-0} |
 .encoding.max_frame_rate = ${DISPLAY_REFRESH} |

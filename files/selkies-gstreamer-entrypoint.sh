@@ -15,7 +15,8 @@ export LD_PRELOAD="${SELKIES_INTERPOSER}${LD_PRELOAD:+:${LD_PRELOAD}}"
 export SDL_JOYSTICK_DEVICE=/dev/input/js0
 
 # Set default display
-export DISPLAY="${DISPLAY:-:20}"
+# Use DISPLAY from environment (set per-user in Dockerfile.user)
+export DISPLAY="${DISPLAY}"
 # PipeWire-Pulse server socket path
 export PIPEWIRE_LATENCY="128/48000"
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp}"

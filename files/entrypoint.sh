@@ -35,7 +35,8 @@ for i in 0 1 2 3; do
 done
 
 # Set default display
-export DISPLAY="${DISPLAY:-:20}"
+# Use DISPLAY from environment (set per-user in Dockerfile.user)
+export DISPLAY="${DISPLAY}"
 # PipeWire-Pulse server socket path
 export PIPEWIRE_LATENCY="128/48000"
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp}"
@@ -94,7 +95,9 @@ elif [ "$(echo ${ENABLE_NVIDIA} | tr '[:upper:]' '[:lower:]')" != "true" ]; then
 fi
 
 # Run Xvfb server with required extensions
-/usr/bin/Xvfb "${DISPLAY}" -screen 0 "8192x4096x${DISPLAY_CDEPTH}" -dpi "${DISPLAY_DPI}" +extension "COMPOSITE" +extension "DAMAGE" +extension "GLX" +extension "RANDR" +extension "RENDER" +extension "MIT-SHM" +extension "XFIXES" +extension "XTEST" +iglx +render -nolisten "tcp" -ac -noreset -shmem &
+# Start with Full HD resolution (1920x1080)
+# The actual display size can be adjusted by selkies-gstreamer-resize
+/usr/bin/Xvfb "${DISPLAY}" -screen 0 "1920x1080x${DISPLAY_CDEPTH}" -dpi "${DISPLAY_DPI}" +extension "COMPOSITE" +extension "DAMAGE" +extension "GLX" +extension "RANDR" +extension "RENDER" +extension "MIT-SHM" +extension "XFIXES" +extension "XTEST" +iglx +render -nolisten "tcp" -ac -noreset -shmem &
 
 # Wait for X server to start
 echo 'Waiting for X Socket' && until [ -S "/tmp/.X11-unix/X${DISPLAY#*:}" ]; do sleep 0.5; done && echo 'X Server is ready'

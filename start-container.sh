@@ -10,19 +10,22 @@ if [ $# -eq 0 ]; then
     echo "Usage: $0 <gpu_option> [vnc]"
     echo ""
     echo "GPU Options:"
-    echo "  all       - Use all available GPUs"
+    echo "  all       - Use all available NVIDIA GPUs"
     echo "  none      - No GPU support (software rendering)"
-    echo "  0,1,2...  - Use specific GPU(s) by device number"
+    echo "  0,1,2...  - Use specific NVIDIA GPU(s) by device number"
+    echo "  intel     - Use Intel integrated GPU"
+    echo "  amd       - Use AMD GPU"
     echo ""
     echo "Display Options (optional):"
     echo "  vnc       - Use KasmVNC instead of Selkies GStreamer"
     echo ""
     echo "Examples:"
-    echo "  $0 all        # Use all GPUs with Selkies"
+    echo "  $0 all        # Use all NVIDIA GPUs with Selkies"
     echo "  $0 none       # No GPU with Selkies"
-    echo "  $0 0          # Use GPU 0 with Selkies"
-    echo "  $0 all vnc    # Use all GPUs with KasmVNC"
-    echo "  $0 none vnc   # No GPU with KasmVNC"
+    echo "  $0 0          # Use NVIDIA GPU 0 with Selkies"
+    echo "  $0 intel      # Use Intel GPU with Selkies"
+    echo "  $0 amd        # Use AMD GPU with Selkies"
+    echo "  $0 all vnc    # Use all NVIDIA GPUs with KasmVNC"
     echo ""
     exit 1
 fi
@@ -66,9 +69,33 @@ fi
 
 # Check if container already exists
 if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+    echo "========================================"
     echo "Container '${CONTAINER_NAME}' already exists."
-    echo "Starting existing container..."
-    docker start "${CONTAINER_NAME}"
+    echo "========================================"
+    
+    # Check if container is running
+    if docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+        echo "Container is already running."
+    else
+        echo "Starting existing container..."
+        docker start "${CONTAINER_NAME}"
+    fi
+    
+    echo ""
+    echo "========================================"
+    echo "Container is ready!"
+    echo "========================================"
+    if [ "${ENABLE_HTTPS}" = "true" ]; then
+        echo "Access via: https://localhost:${HTTPS_PORT}"
+    else
+        echo "Access via: http://localhost:${HTTPS_PORT}"
+    fi
+    echo "Username: $(whoami)"
+    echo ""
+    echo "View logs: ./logs-container.sh"
+    echo "Stop container: ./stop-container.sh"
+    echo "Access shell: ./shell-container.sh"
+    echo "========================================"
     exit 0
 fi
 
@@ -92,7 +119,7 @@ else
     CMD="${CMD} -it"
 fi
 
-CMD="${CMD} --rm"
+# Note: --rm flag removed to allow container persistence and commit
 CMD="${CMD} --tmpfs /dev/shm:rw"
 CMD="${CMD} --hostname $(hostname)-Container"
 
@@ -102,13 +129,30 @@ if [ "${GPU_ARG}" = "none" ]; then
     CMD="${CMD} --device=/dev/dri:rwm"
     CMD="${CMD} -e ENABLE_NVIDIA=false"
     VIDEO_ENCODER="x264enc"
+elif [ "${GPU_ARG}" = "intel" ]; then
+    # Intel GPU
+    CMD="${CMD} --device=/dev/dri:rwm"
+    CMD="${CMD} -e ENABLE_NVIDIA=false"
+    # Intel Quick Sync Video encoder
+    VIDEO_ENCODER="${VIDEO_ENCODER:-vah264enc}"
+    echo "Using Intel GPU with VA-API hardware acceleration"
+elif [ "${GPU_ARG}" = "amd" ]; then
+    # AMD GPU
+    CMD="${CMD} --device=/dev/dri:rwm"
+    CMD="${CMD} --device=/dev/kfd:rwm"
+    CMD="${CMD} -e ENABLE_NVIDIA=false"
+    # AMD VCE/VCN encoder
+    VIDEO_ENCODER="${VIDEO_ENCODER:-vah264enc}"
+    echo "Using AMD GPU with VA-API hardware acceleration"
 elif [ "${GPU_ARG}" = "all" ]; then
-    # All GPUs
+    # All NVIDIA GPUs
     CMD="${CMD} --gpus all"
+    CMD="${CMD} --device=/dev/dri:rwm"
     VIDEO_ENCODER="${VIDEO_ENCODER:-nvh264enc}"
 else
-    # Specific GPU(s) by device number
+    # Specific NVIDIA GPU(s) by device number
     CMD="${CMD} --gpus '\"device=${GPU_ARG}\"'"
+    CMD="${CMD} --device=/dev/dri:rwm"
     VIDEO_ENCODER="${VIDEO_ENCODER:-nvh264enc}"
 fi
 

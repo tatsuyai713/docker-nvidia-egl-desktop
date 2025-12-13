@@ -82,8 +82,19 @@ This repository is an enhanced fork of the original Selkies EGL Desktop project,
 - **🌐 Multi-Language Support:** Japanese language environment available
   - Set `IN_LOCALE=JP` during build for Japanese input (Mozc)
   - Automatic timezone (Asia/Tokyo) and locale (ja_JP.UTF-8) configuration
+  - RIKEN mirror repository for faster downloads in Japan
   - fcitx input method framework included
   - US/English remains the default
+
+- **🌐 Chrome Sandbox Permanent Fix:** Chrome runs properly in containers
+  - Wrapper script in `/usr/local/bin` ensures `--no-sandbox` flag
+  - Survives Chrome package updates without manual intervention
+  - No need for user scripts or manual fixes
+
+- **🖥️ Desktop Shortcuts:** Standard desktop environment experience
+  - Home and Trash icons automatically created
+  - XDG user directories configured (Desktop, Downloads, Documents, etc.)
+  - Consistent experience across all language settings
 
 ### Why This Fork?
 
@@ -107,22 +118,29 @@ This repository is an enhanced fork of the original Selkies EGL Desktop project,
 
 ```bash
 # 1. Build your user image (password will be prompted)
-./build-user-image.sh
-
-# For Japanese environment:
-IN_LOCALE=JP ./build-user-image.sh
+./build-user-image.sh              # English environment (default)
+IN_LOCALE=JP ./build-user-image.sh # Japanese environment with Mozc input
 
 # 2. Generate SSL certificate (optional, for HTTPS)
 ./generate-ssl-cert.sh
 
 # 3. Start the container
-./start-container.sh all          # With all GPUs
-./start-container.sh none         # Without GPU
-./start-container.sh 0            # With GPU 0
+./start-container.sh all          # With all GPUs (NVIDIA)
+./start-container.sh intel        # With Intel integrated GPU
+./start-container.sh amd          # With AMD GPU
+./start-container.sh none         # Without GPU (software rendering)
 ./start-container.sh all vnc      # KasmVNC mode
 
 # 4. Access via browser
 # → http://localhost:8080 (or https://localhost:8080 if HTTPS enabled)
+
+# 5. Save your changes (optional)
+./commit-container.sh              # Save container state
+./commit-container.sh restart all  # Save and restart with all GPUs
+
+# 6. Stop the container
+./stop-container.sh                # Stop (container persists)
+./stop-container.sh rm             # Stop and remove
 ```
 
 That's it! 🎉
@@ -146,10 +164,18 @@ That's it! 🎉
 ## Prerequisites
 
 - **Docker** 19.03 or later
-- **NVIDIA GPU** (optional, for hardware acceleration)
-  - Driver version 450.80.02 or later
-  - Maxwell generation or newer
-  - NVIDIA Container Toolkit installed
+- **GPU** (optional, for hardware acceleration)
+  - **NVIDIA GPU**
+    - Driver version 450.80.02 or later
+    - Maxwell generation or newer
+    - NVIDIA Container Toolkit installed
+  - **Intel GPU**
+    - Intel integrated graphics (HD Graphics, Iris, Arc)
+    - Quick Sync Video support
+    - VA-API drivers included in container
+  - **AMD GPU**
+    - Radeon graphics with VCE/VCN encoder
+    - VA-API drivers included in container
 - **Linux Host** (Ubuntu 20.04+ recommended)
 
 ---
@@ -258,25 +284,33 @@ The `start-container.sh` script requires a GPU argument:
 ```bash
 # Syntax: ./start-container.sh <gpu> [display_mode]
 
-# GPU options:
-./start-container.sh all          # Use all available GPUs
+# NVIDIA GPU options:
+./start-container.sh all          # Use all available NVIDIA GPUs
+./start-container.sh 0            # Use NVIDIA GPU 0 only
+./start-container.sh 0,1          # Use NVIDIA GPU 0 and 1
+
+# Intel/AMD GPU options:
+./start-container.sh intel        # Use Intel integrated GPU (Quick Sync Video)
+./start-container.sh amd          # Use AMD GPU (VCE/VCN)
+
+# Software rendering:
 ./start-container.sh none         # No GPU (software rendering)
-./start-container.sh 0            # Use GPU 0 only
-./start-container.sh 0,1          # Use GPU 0 and 1
 
 # Display mode options (optional second argument):
 ./start-container.sh all          # Selkies GStreamer (WebRTC, default)
-./start-container.sh all vnc      # KasmVNC (VNC over WebSocket)
+./start-container.sh intel vnc    # KasmVNC (VNC over WebSocket) with Intel GPU
+./start-container.sh all vnc      # KasmVNC with NVIDIA GPUs
 ```
 
 Then open your browser to: <http://localhost:8080>
 
 **Container Features:**
 
-- Automatically removed when stopped (using `--rm` flag)
-- Hostname set to `$(hostname)-Container`
-- Host home directory mounted at `~/host_home`
-- Container name: `devcontainer-egl-desktop-{username}`
+- **Container persistence:** Not removed when stopped (can restart or commit changes)
+- **Hostname:** Set to `$(hostname)-Container`
+- **Host home mount:** Available at `~/host_home`
+- **Container name:** `devcontainer-egl-desktop-{username}`
+- **GPU flexibility:** NVIDIA, Intel, AMD, or software rendering
 
 ### Common Options
 
@@ -301,10 +335,19 @@ CONTAINER_NAME=my-desktop ./start-container.sh all
 ### Stopping the Container
 
 ```bash
+# Stop container (persists for restart or commit)
 ./stop-container.sh
+
+# Stop and remove container
+./stop-container.sh rm
+# or
+./stop-container.sh remove
 ```
 
-The container is automatically removed (using `--rm` flag).
+**Container Persistence:**
+- By default, stopped containers persist and can be restarted
+- Use `rm` option to completely remove the container
+- Restart with: `./start-container.sh <gpu> [vnc]`
 
 ---
 
@@ -314,9 +357,9 @@ The container is automatically removed (using `--rm` flag).
 
 | Script | Description | Usage |
 |--------|-------------|-------|
-| `build-user-image.sh` | Build your user-specific image | `./build-user-image.sh` |
+| `build-user-image.sh` | Build your user-specific image | `./build-user-image.sh` or `IN_LOCALE=JP ./build-user-image.sh` |
 | `start-container.sh` | Start the desktop container | `./start-container.sh <gpu> [vnc]` |
-| `stop-container.sh` | Stop the container | `./stop-container.sh` |
+| `stop-container.sh` | Stop the container | `./stop-container.sh [rm\|remove]` |
 | `generate-ssl-cert.sh` | Generate self-signed SSL certificate | `./generate-ssl-cert.sh` |
 
 ### Management Scripts
@@ -327,7 +370,7 @@ The container is automatically removed (using `--rm` flag).
 | `logs-container.sh` | View container logs | `./logs-container.sh` |
 | `shell-container.sh` | Access container shell | `./shell-container.sh` |
 | `delete-image.sh` | Delete the user-specific image | `./delete-image.sh` |
-| `commit-container.sh` | Save container changes to new image | `./commit-container.sh` |
+| `commit-container.sh` | Save container changes to image | `./commit-container.sh [restart [gpu]]` |
 
 For detailed Japanese documentation, see [SCRIPTS.md](SCRIPTS.md).
 
@@ -358,17 +401,25 @@ AS_ROOT=true ./shell-container.sh
 If you've installed software or made changes in the container:
 
 ```bash
-# Save to a new image
+# Save container state to image
 ./commit-container.sh
+
+# Save and restart automatically
+./commit-container.sh restart all      # Restart with all NVIDIA GPUs
+./commit-container.sh restart intel    # Restart with Intel GPU
+./commit-container.sh restart amd      # Restart with AMD GPU
+./commit-container.sh restart none vnc # Restart without GPU in VNC mode
 
 # Save with a custom tag
 COMMIT_TAG=my-setup ./commit-container.sh
 
 # Use the saved image
-IMAGE_NAME=devcontainer-ubuntu24.04-egl-desktop-base:my-setup \
+IMAGE_NAME=devcontainer-ubuntu24.04-egl-desktop:my-setup \
   CONTAINER_NAME=my-desktop-2 \
   ./start-container.sh all
 ```
+
+**Note:** The image tag format is `24.04-{username}` (without timestamp) for easy reusability.
 
 **Deleting Image:**
 

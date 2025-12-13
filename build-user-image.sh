@@ -3,7 +3,13 @@
 
 set -e
 
-# Parse command line arguments
+# Locale configuration - set defaults first
+IN_LOCALE="${IN_LOCALE:-US}"
+IN_TZ="${IN_TZ:-UTC}"
+IN_LANG="${IN_LANG:-en_US.UTF-8}"
+IN_LANGUAGE="${IN_LANGUAGE:-en_US:en}"
+
+# Parse command line arguments and override defaults
 if [ $# -ge 1 ]; then
     if [ "$1" = "JP" ] || [ "$1" = "jp" ]; then
         IN_LOCALE="JP"
@@ -12,25 +18,19 @@ if [ $# -ge 1 ]; then
     fi
 fi
 
+# Set Japanese locale defaults if IN_LOCALE is JP
+if [ "${IN_LOCALE}" = "JP" ]; then
+    IN_TZ="Asia/Tokyo"
+    IN_LANG="ja_JP.UTF-8"
+    IN_LANGUAGE="ja_JP:ja"
+fi
+
 # Configuration
 BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-ghcr.io/tatsuyai713/devcontainer-ubuntu-egl-desktop-base}"
 BASE_IMAGE_TAG="${BASE_IMAGE_TAG:-24.04}"
 USER_IMAGE_NAME="${USER_IMAGE_NAME:-devcontainer-ubuntu-egl-desktop}"
 USER_IMAGE_TAG="${USER_IMAGE_TAG:-${BASE_IMAGE_TAG}-$(whoami)}"
 NO_CACHE="${NO_CACHE:-false}"
-
-# Locale configuration (set IN_LOCALE=JP for Japanese support)
-IN_LOCALE="${IN_LOCALE:-US}"
-IN_TZ="${IN_TZ:-UTC}"
-IN_LANG="${IN_LANG:-en_US.UTF-8}"
-IN_LANGUAGE="${IN_LANGUAGE:-en_US:en}"
-
-# Set Japanese locale defaults if IN_LOCALE is JP
-if [ "${IN_LOCALE}" = "JP" ]; then
-    IN_TZ="${IN_TZ:-Asia/Tokyo}"
-    IN_LANG="${IN_LANG:-ja_JP.UTF-8}"
-    IN_LANGUAGE="${IN_LANGUAGE:-ja_JP:ja}"
-fi
 
 # Get current user information
 CURRENT_USER=$(whoami)

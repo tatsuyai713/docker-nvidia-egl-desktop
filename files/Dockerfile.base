@@ -88,6 +88,10 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         nano \
         vim \
         htop \
+        bash-completion \
+        command-not-found \
+        apt-file \
+        python3-apt \
         fonts-dejavu \
         fonts-freefont-ttf \
         fonts-hack \
@@ -279,8 +283,6 @@ ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=all
 # Disable VSYNC for NVIDIA GPUs
 ENV __GL_SYNC_TO_VBLANK=0
-# Set default DISPLAY environment
-ENV DISPLAY=":20"
 
 # Anything above this line should always be kept the same between docker-selkies-glx-desktop and docker-selkies-egl-desktop
 
@@ -568,8 +570,14 @@ RUN KASMVNC_VERSION="$(echo ${KASMVNC_VERSION} | sed 's/[^0-9\.\-]*//g')" && \
     cd /tmp && curl -o yq -fsSL "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_linux_$(dpkg --print-architecture)" && install ./yq /usr/bin/ && rm -f yq && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /tmp/* /var/tmp/*
 
-# Apply KasmVNC autoconnect patch (same as noVNC)
-RUN sed -i '/<head>/a <script>if (window.location.search === "" || window.location.search === "?") { window.location.replace(window.location.pathname + "?autoconnect=1&resize=scale"); }</script>' /usr/share/kasmvnc/www/vnc.html
+# Apply KasmVNC autoconnect patch - redirect to URL with autoconnect and resize parameters
+# Only patch index.html as it's the file actually served by KasmVNC
+RUN python3 -c 'import sys; \
+content = open("/usr/share/kasmvnc/www/index.html", "r").read(); \
+script = "<script>(function(){var s=window.location.search;if(!s||s===\"?\"){window.location.replace(window.location.pathname+\"?autoconnect=1&resize=scale\");}})()</script>"; \
+content = content.replace("<head>", "<head>" + script, 1); \
+open("/usr/share/kasmvnc/www/index.html", "w").write(content); \
+print("✓ KasmVNC autoconnect patch applied")'
 
 ENV PATH="${PATH:+${PATH}:}/usr/lib/rustdesk"
 ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+${LD_LIBRARY_PATH}:}/usr/lib/rustdesk/lib"
@@ -610,10 +618,22 @@ turnserver \
     \${TURN_EXTRA_ARGS} \$@\
 " > /etc/start-turnserver.sh && chmod 755 /etc/start-turnserver.sh
 
-# Create directories that users will need
-RUN mkdir -p /tmp/runtime-user && chmod 1777 /tmp/runtime-user
+# Initialize bash-completion and command-not-found databases
+# This ensures apt tab completion works properly
+RUN apt-file update && \
+    update-command-not-found || true && \
+    # Disable docker-clean that prevents apt cache completion
+    rm -f /etc/apt/apt.conf.d/docker-clean && \
+    # Configure apt to keep cache files for completion
+    mkdir -p /etc/apt/apt.conf.d && \
+    echo 'Dir::Cache::pkgcache "/var/cache/apt/pkgcache.bin";' > /etc/apt/apt.conf.d/00-apt-cache-completion && \
+    echo 'Dir::Cache::srcpkgcache "/var/cache/apt/srcpkgcache.bin";' >> /etc/apt/apt.conf.d/00-apt-cache-completion && \
+    # Generate apt cache for package name completion
+    apt-cache gencaches && \
+    chmod 644 /var/cache/apt/*.bin && \
+    # Verify cache files were created
+    ls -la /var/cache/apt/*.bin
 
 ENV PIPEWIRE_LATENCY="128/48000"
-ENV DISPLAY=":20"
 
 EXPOSE 8080
