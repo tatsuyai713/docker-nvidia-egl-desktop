@@ -157,7 +157,7 @@ IN_LOCALE=JP ./build-user-image.sh # Japanese environment with Mozc input
 # 7. Switch display mode (requires recreation)
 ./commit-container.sh              # Save changes first!
 ./stop-container.sh rm             # Remove container
-./start-container.sh intel vnc     # Recreate with KasmVNC mode
+./start-container.sh -g intel --vnc # Recreate with KasmVNC mode
 ```
 
 That's it! 🎉
@@ -404,15 +404,15 @@ If you need to switch between Selkies and KasmVNC:
 ```bash
 # Method 1: Delete and recreate
 ./stop-container.sh rm
-./start-container.sh intel vnc     # Switch to KasmVNC
+./start-container.sh -g intel --vnc # Switch to KasmVNC
 
 # Method 2: Commit, delete, and recreate
 ./commit-container.sh              # Save changes first
 ./stop-container.sh rm
-./start-container.sh intel         # Switch to Selkies
+./start-container.sh -g intel      # Switch to Selkies
 
 # Method 3: Commit and auto-restart
-./commit-container.sh restart intel vnc  # Save and switch to KasmVNC
+./commit-container.sh restart -g intel --vnc  # Save and switch to KasmVNC
 ```
 
 The start script will detect mode mismatch and show a helpful error message with instructions.
@@ -521,7 +521,7 @@ COMMIT_TAG=my-setup ./commit-container.sh
 # Use the saved image
 IMAGE_NAME=devcontainer-ubuntu-egl-desktop-$(whoami):my-setup \
   CONTAINER_NAME=my-desktop-2 \
-  ./start-container.sh all
+  ./start-container.sh -g all
 ```
 
 **Important Notes:**

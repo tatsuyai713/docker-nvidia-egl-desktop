@@ -404,15 +404,15 @@ SelkiesとKasmVNCを切り替える必要がある場合：
 ```bash
 # 方法1：削除して再作成
 ./stop-container.sh rm
-./start-container.sh intel vnc     # KasmVNCに切り替え
+./start-container.sh -g intel --vnc # KasmVNCに切り替え
 
 # 方法2：コミット、削除、再作成
 ./commit-container.sh              # まず変更を保存
 ./stop-container.sh rm
-./start-container.sh intel         # Selkiesに切り替え
+./start-container.sh -g intel      # Selkiesに切り替え
 
 # 方法3：コミットして自動再起動
-./commit-container.sh restart intel vnc  # 保存してKasmVNCに切り替え
+./commit-container.sh restart -g intel --vnc  # 保存してKasmVNCに切り替え
 ```
 
 startスクリプトはモードの不一致を検出し、手順付きの役立つエラーメッセージを表示します。
@@ -659,7 +659,7 @@ KEYBOARD_LAYOUT=fr KEYBOARD_MODEL=pc105 KEYBOARD_VARIANT=azerty ./start-containe
 - ゲームとグラフィックスに適している
 
 ```bash
-./start-container.sh all          # デフォルトでSelkiesを使用
+./start-container.sh -g all       # デフォルトでSelkiesを使用
 ```
 
 **KasmVNC：**
@@ -669,7 +669,7 @@ KEYBOARD_LAYOUT=fr KEYBOARD_MODEL=pc105 KEYBOARD_VARIANT=azerty ./start-containe
 - GPUなしで動作
 
 ```bash
-./start-container.sh all vnc      # KasmVNCモードを有効化
+./start-container.sh -g all --vnc # KasmVNCモードを有効化
 ```
 
 ---
@@ -856,15 +856,15 @@ setxkbmap -layout jp -model jp106 -query
 
 ```bash
 # オプション1：現在のモードを維持
-./start-container.sh intel  # 元のモードを使用
+./start-container.sh -g intel  # 元のモードを使用
 
 # オプション2：変更を保存して再作成
-./commit-container.sh       # まず変更を保存！
-./stop-container.sh rm      # コンテナを削除
-./start-container.sh intel vnc  # 新しいモードで再作成
+./commit-container.sh          # まず変更を保存！
+./stop-container.sh rm         # コンテナを削除
+./start-container.sh -g intel --vnc  # 新しいモードで再作成
 
-# オプション3：ワンステップでコミットして再作成
-./commit-container.sh restart intel vnc
+# オプション3：ワンステップでコミットと再作成
+./commit-container.sh restart -g intel --vnc
 ```
 
 **なぜモードを変更できないのか？**

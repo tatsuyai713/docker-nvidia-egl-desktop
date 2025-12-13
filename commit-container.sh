@@ -43,9 +43,9 @@ if [ "${RESTART}" = "restart" ]; then
     IMAGE_NAME="${BASE_IMAGE_NAME}:${COMMIT_TAG}" ./start-container.sh "$@"
 else
     echo "To use this image:"
-    echo "  IMAGE_NAME=${BASE_IMAGE_NAME}:${COMMIT_TAG} ./start-container.sh <gpu>"
+    echo "  IMAGE_NAME=${BASE_IMAGE_NAME}:${COMMIT_TAG} ./start-container.sh [--gpu <type>] [--vnc]"
     echo ""
     echo "To restart with this image:"
-    echo "  ./commit-container.sh restart <gpu>"
+    echo "  ./commit-container.sh restart [--gpu <type>] [--vnc]"
     echo "========================================"
 fi
