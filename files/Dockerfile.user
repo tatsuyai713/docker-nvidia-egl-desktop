@@ -255,7 +255,7 @@ RUN if [ -f /usr/bin/google-chrome-stable ]; then \
     echo '#!/bin/bash' > /usr/local/bin/google-chrome-stable && \
     echo '# Wrapper script to run Chrome without sandbox (required for containerized environments)' >> /usr/local/bin/google-chrome-stable && \
     echo '# Chrome updates will not affect this wrapper as it is in /usr/local/bin' >> /usr/local/bin/google-chrome-stable && \
-    echo 'exec /usr/bin/google-chrome-stable --no-sandbox --disable-dev-shm-usage --disable-gpu --num-raster-threads=4 "$@"' >> /usr/local/bin/google-chrome-stable && \
+    echo 'exec /usr/bin/google-chrome-stable --no-sandbox "$@"' >> /usr/local/bin/google-chrome-stable && \
     chmod 755 /usr/local/bin/google-chrome-stable; \
     fi
 
@@ -263,7 +263,7 @@ RUN if [ -f /usr/bin/google-chrome-stable ]; then \
 RUN for chrome_bin in google-chrome google-chrome-beta google-chrome-unstable; do \
     if [ -f /usr/bin/${chrome_bin} ]; then \
         echo '#!/bin/bash' > /usr/local/bin/${chrome_bin} && \
-        echo "exec /usr/bin/${chrome_bin} --no-sandbox --disable-dev-shm-usage --disable-gpu --num-raster-threads=4 \"\$@\"" >> /usr/local/bin/${chrome_bin} && \
+        echo "exec /usr/bin/${chrome_bin} --no-sandbox \"\$@\"" >> /usr/local/bin/${chrome_bin} && \
         chmod 755 /usr/local/bin/${chrome_bin}; \
     fi; \
     done
