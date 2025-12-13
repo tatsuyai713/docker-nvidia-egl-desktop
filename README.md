@@ -133,12 +133,14 @@ IN_LOCALE=JP ./build-user-image.sh # Japanese environment with Mozc input
 ./generate-ssl-cert.sh
 
 # 3. Start the container
-./start-container.sh all          # With all GPUs (NVIDIA), Selkies mode
-./start-container.sh intel        # With Intel integrated GPU, Selkies mode
-./start-container.sh amd          # With AMD GPU, Selkies mode
-./start-container.sh none         # Without GPU (software rendering)
-./start-container.sh all vnc      # KasmVNC mode with NVIDIA GPUs
-./start-container.sh intel vnc    # KasmVNC mode with Intel GPU
+./start-container.sh                      # Software rendering (no GPU), Selkies mode
+./start-container.sh --gpu all            # With all GPUs (NVIDIA), Selkies mode
+./start-container.sh -g intel             # With Intel integrated GPU, Selkies mode
+./start-container.sh --gpu amd            # With AMD GPU, Selkies mode
+./start-container.sh --gpu all --vnc      # KasmVNC mode with NVIDIA GPUs
+./start-container.sh -g intel -v          # KasmVNC mode with Intel GPU
+./start-container.sh -g 0 -v              # NVIDIA GPU 0 with KasmVNC
+# Note: Default is software rendering if --gpu not specified
 # Note: Keyboard layout is auto-detected from your host system
 
 # 4. Access via browser
@@ -184,13 +186,15 @@ That's it! 🎉
     - Driver version 450.80.02 or later
     - Maxwell generation or newer
     - NVIDIA Container Toolkit installed
-  - **Intel GPU** ⚠️ Untested
+  - **Intel GPU** ✅ Tested
     - Intel integrated graphics (HD Graphics, Iris, Arc)
     - Quick Sync Video support
     - VA-API drivers included in container
-  - **AMD GPU** ⚠️ Untested
+    - **Host setup required** (see below for details)
+  - **AMD GPU** ⚠️ Partially Tested
     - Radeon graphics with VCE/VCN encoder
     - VA-API drivers included in container
+    - **Host setup required** (see below for details)
 - **Linux Host** (Ubuntu 20.04+ recommended)
 
 ---
@@ -228,6 +232,59 @@ This project uses a two-stage build approach for fast setup and proper file perm
 - When you mount host directories (like `$HOME`), files need matching ownership
 - Without matching UID/GID, you get permission errors
 - The user image automatically matches your host credentials
+
+---
+
+## Intel/AMD GPU Host Setup
+
+If you plan to use hardware encoding (VA-API) with Intel or AMD GPUs, host-side setup is required:
+
+### 1. Add User to video/render Groups
+
+For the container to access GPU devices (`/dev/dri/*`), the host user must be a member of the `video` and `render` groups:
+
+```bash
+# Add user to video/render groups
+sudo usermod -aG video,render $USER
+
+# Logout and re-login or reboot to apply group changes
+# Verify:
+groups
+# Confirm output includes "video" and "render"
+```
+
+### 2. Install VA-API Drivers (Intel)
+
+For Intel GPU hardware encoding:
+
+```bash
+# Install VA-API tools and Intel driver
+sudo apt update
+sudo apt install vainfo intel-media-va-driver-non-free
+
+# Verify installation (check for H.264 encoding support):
+vainfo
+# Confirm output includes "VAProfileH264Main : VAEntrypointEncSlice" etc.
+```
+
+### 3. Install VA-API Drivers (AMD)
+
+For AMD GPU hardware encoding:
+
+```bash
+# Install VA-API tools and AMD driver
+sudo apt update
+sudo apt install vainfo mesa-va-drivers
+
+# Verify installation:
+vainfo
+# Confirm output includes "VAProfileH264Main : VAEntrypointEncSlice" etc.
+```
+
+**Notes:**
+- NVIDIA GPUs do not require this setup
+- If VA-API works correctly on the host, it will automatically work in the container
+- Always logout/re-login or reboot after group changes
 
 ---
 
@@ -296,32 +353,35 @@ docker build \
 
 ### Starting the Container
 
-The `start-container.sh` script requires a GPU argument:
+The `start-container.sh` script uses optional arguments for GPU and display mode:
 
 ```bash
-# Syntax: ./start-container.sh <gpu> [display_mode]
+# Syntax: ./start-container.sh [--gpu <type>] [--vnc]
+# Default: Software rendering with Selkies if no options specified
 
 # NVIDIA GPU options:
-./start-container.sh all          # Use all available NVIDIA GPUs
-./start-container.sh 0            # Use NVIDIA GPU 0 only
-./start-container.sh 0,1          # Use NVIDIA GPU 0 and 1
+./start-container.sh --gpu all            # Use all available NVIDIA GPUs
+./start-container.sh -g 0                 # Use NVIDIA GPU 0 only
+./start-container.sh --gpu 0,1            # Use NVIDIA GPU 0 and 1
 
 # Intel/AMD GPU options:
-./start-container.sh intel        # Use Intel integrated GPU (Quick Sync Video)
-./start-container.sh amd          # Use AMD GPU (VCE/VCN)
+./start-container.sh --gpu intel          # Use Intel integrated GPU (Quick Sync Video)
+./start-container.sh -g amd               # Use AMD GPU (VCE/VCN)
 
 # Software rendering:
-./start-container.sh none         # No GPU (software rendering)
+./start-container.sh                      # No GPU (software rendering, default)
+./start-container.sh --gpu none           # Explicitly specify no GPU
 
-# Display mode options (optional second argument):
-./start-container.sh all          # Selkies GStreamer (WebRTC, default)
-./start-container.sh intel vnc    # KasmVNC (VNC over WebSocket) with Intel GPU
-./start-container.sh all vnc      # KasmVNC with NVIDIA GPUs
+# Display mode options:
+./start-container.sh --gpu all            # Selkies GStreamer (WebRTC, default)
+./start-container.sh -g intel --vnc       # KasmVNC (VNC over WebSocket) with Intel GPU
+./start-container.sh --gpu all -v         # KasmVNC with NVIDIA GPUs
+./start-container.sh -v                   # KasmVNC with software rendering
 
 # Keyboard layout override (auto-detected by default):
-KEYBOARD_LAYOUT=jp ./start-container.sh intel        # Japanese keyboard
-KEYBOARD_LAYOUT=us ./start-container.sh intel        # US keyboard
-KEYBOARD_LAYOUT=de KEYBOARD_MODEL=pc105 ./start-container.sh all  # German keyboard
+KEYBOARD_LAYOUT=jp ./start-container.sh -g intel        # Japanese keyboard
+KEYBOARD_LAYOUT=us ./start-container.sh --gpu intel    # US keyboard
+KEYBOARD_LAYOUT=de KEYBOARD_MODEL=pc105 ./start-container.sh -g all  # German keyboard
 ```
 
 Then open your browser to: <http://localhost:8080>
@@ -362,19 +422,19 @@ The start script will detect mode mismatch and show a helpful error message with
 ```bash
 # Use HTTPS
 ./generate-ssl-cert.sh
-./start-container.sh all
+./start-container.sh -g all
 
 # Use a different port
-HTTPS_PORT=9090 ./start-container.sh all
+HTTPS_PORT=9090 ./start-container.sh --gpu all
 
 # High resolution (4K)
-DISPLAY_WIDTH=3840 DISPLAY_HEIGHT=2160 ./start-container.sh all
+DISPLAY_WIDTH=3840 DISPLAY_HEIGHT=2160 ./start-container.sh -g all
 
 # Foreground mode (see logs directly)
-DETACHED=false ./start-container.sh all
+DETACHED=false ./start-container.sh --gpu all
 
 # Custom container name
-CONTAINER_NAME=my-desktop ./start-container.sh all
+CONTAINER_NAME=my-desktop ./start-container.sh -g all
 ```
 
 ### Stopping the Container
@@ -392,7 +452,7 @@ CONTAINER_NAME=my-desktop ./start-container.sh all
 **Container Persistence:**
 - By default, stopped containers persist and can be restarted
 - Use `rm` option to completely remove the container
-- Restart with: `./start-container.sh <gpu> [vnc]`
+- Restart with: `./start-container.sh [--gpu <type>] [--vnc]`
 
 ---
 
@@ -403,7 +463,7 @@ CONTAINER_NAME=my-desktop ./start-container.sh all
 | Script | Description | Usage |
 |--------|-------------|-------|
 | `build-user-image.sh` | Build your user-specific image | `./build-user-image.sh` or `IN_LOCALE=JP ./build-user-image.sh` |
-| `start-container.sh` | Start the desktop container | `./start-container.sh <gpu> [vnc]` |
+| `start-container.sh` | Start the desktop container | `./start-container.sh [--gpu <type>] [--vnc]` |
 | `stop-container.sh` | Stop the container | `./stop-container.sh [rm\|remove]` |
 | `generate-ssl-cert.sh` | Generate self-signed SSL certificate | `./generate-ssl-cert.sh` |
 
@@ -450,10 +510,10 @@ If you've installed software or made changes in the container:
 ./commit-container.sh
 
 # Save and restart automatically
-./commit-container.sh restart all      # Restart with all NVIDIA GPUs
-./commit-container.sh restart intel    # Restart with Intel GPU
-./commit-container.sh restart amd      # Restart with AMD GPU
-./commit-container.sh restart none vnc # Restart without GPU in VNC mode
+./commit-container.sh restart --gpu all      # Restart with all NVIDIA GPUs
+./commit-container.sh restart -g intel       # Restart with Intel GPU
+./commit-container.sh restart --gpu amd      # Restart with AMD GPU
+./commit-container.sh restart --vnc          # Restart with VNC mode (no GPU)
 
 # Save with a custom tag
 COMMIT_TAG=my-setup ./commit-container.sh
@@ -486,10 +546,10 @@ exit
 ./stop-container.sh rm
 
 # 4. Next startup uses the committed image with all your changes
-./start-container.sh intel
+./start-container.sh -g intel
 
 # 5. To switch display mode with saved changes:
-./commit-container.sh restart intel vnc  # Save and switch to KasmVNC
+./commit-container.sh restart -g intel --vnc  # Save and switch to KasmVNC
 ```
 
 **Deleting Image:**
@@ -518,7 +578,7 @@ DISPLAY_HEIGHT=1080       # Height in pixels
 DISPLAY_REFRESH=60        # Refresh rate in Hz
 DISPLAY_DPI=96            # DPI setting
 
-./start-container.sh all
+./start-container.sh -g all
 ```
 
 ### Video Encoding
@@ -533,7 +593,7 @@ FRAMERATE=60              # FPS
 VIDEO_ENCODER=x264enc     # H.264 software
 VIDEO_BITRATE=4000        # Lower bitrate for CPU
 
-./start-container.sh all
+./start-container.sh -g all
 ```
 
 **Available encoders:**
@@ -548,7 +608,7 @@ VIDEO_BITRATE=4000        # Lower bitrate for CPU
 
 ```bash
 AUDIO_BITRATE=128000      # Audio bitrate in bps (default: 128000)
-./start-container.sh all
+./start-container.sh -g all
 ```
 
 ### Keyboard Settings
@@ -599,7 +659,7 @@ KEYBOARD_LAYOUT=fr KEYBOARD_MODEL=pc105 KEYBOARD_VARIANT=azerty ./start-containe
 - Better for gaming and graphics
 
 ```bash
-./start-container.sh all          # Uses Selkies by default
+./start-container.sh -g all       # Uses Selkies by default
 ```
 
 **KasmVNC:**
@@ -609,7 +669,7 @@ KEYBOARD_LAYOUT=fr KEYBOARD_MODEL=pc105 KEYBOARD_VARIANT=azerty ./start-containe
 - Works without GPU
 
 ```bash
-./start-container.sh all vnc      # Activates KasmVNC mode
+./start-container.sh -g all --vnc # Activates KasmVNC mode
 ```
 
 ---
@@ -623,7 +683,7 @@ KEYBOARD_LAYOUT=fr KEYBOARD_MODEL=pc105 KEYBOARD_VARIANT=azerty ./start-containe
 ./generate-ssl-cert.sh
 
 # 2. Start container (auto-detects ssl/ folder)
-./start-container.sh all
+./start-container.sh -g all
 ```
 
 The script will:
@@ -647,7 +707,7 @@ The `start-container.sh` script auto-detects certificates in this order:
 ```bash
 CERT_PATH=/path/to/cert.pem \
   KEY_PATH=/path/to/key.pem \
-  ./start-container.sh all
+  ./start-container.sh -g all
 ```
 
 ### Manual Certificate Generation
@@ -680,7 +740,7 @@ docker images | grep devcontainer-ubuntu-egl-desktop-base
 sudo netstat -tulpn | grep 8080
 
 # Use a different port
-HTTPS_PORT=8081 ./start-container.sh all
+HTTPS_PORT=8081 ./start-container.sh -g all
 ```
 
 ### GPU Not Detected
@@ -693,7 +753,7 @@ nvidia-smi
 docker run --rm --gpus all nvidia/cuda:11.0-base nvidia-smi
 
 # Use software rendering if GPU issues persist
-./start-container.sh none
+./start-container.sh
 ```
 
 ### Permission Issues
@@ -767,7 +827,7 @@ cat /etc/default/keyboard
 
 # Override with correct layout
 ./stop-container.sh rm
-KEYBOARD_LAYOUT=jp KEYBOARD_MODEL=jp106 ./start-container.sh intel
+KEYBOARD_LAYOUT=jp KEYBOARD_MODEL=jp106 ./start-container.sh -g intel
 ```
 
 **For Japanese keyboards specifically:**
@@ -796,15 +856,15 @@ This is expected behavior. Display mode (Selkies/KasmVNC) cannot be changed for 
 
 ```bash
 # Option 1: Keep current mode
-./start-container.sh intel  # Use the original mode
+./start-container.sh -g intel  # Use the original mode
 
 # Option 2: Save changes and recreate
-./commit-container.sh       # Save changes first!
-./stop-container.sh rm      # Remove container
-./start-container.sh intel vnc  # Recreate with new mode
+./commit-container.sh          # Save changes first!
+./stop-container.sh rm         # Remove container
+./start-container.sh -g intel --vnc  # Recreate with new mode
 
 # Option 3: One-step commit and recreate
-./commit-container.sh restart intel vnc
+./commit-container.sh restart -g intel --vnc
 ```
 
 **Why can't I change the mode?**
@@ -903,13 +963,13 @@ docker-compose -f docker-compose.user.yml down
 **AMD/Intel GPUs:**
 
 ```bash
-VIDEO_ENCODER=vah264enc ./start-container.sh none
+VIDEO_ENCODER=vah264enc ./start-container.sh -g intel
 ```
 
 **Software Rendering (No GPU):**
 
 ```bash
-VIDEO_ENCODER=x264enc ./start-container.sh none
+VIDEO_ENCODER=x264enc ./start-container.sh
 ```
 
 ### Mounting Additional Volumes

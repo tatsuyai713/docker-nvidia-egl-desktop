@@ -133,12 +133,14 @@ IN_LOCALE=JP ./build-user-image.sh # Mozc入力付き日本語環境
 ./generate-ssl-cert.sh
 
 # 3. コンテナを起動
-./start-container.sh all          # すべてのGPU（NVIDIA）、Selkiesモード
-./start-container.sh intel        # Intel統合GPU、Selkiesモード
-./start-container.sh amd          # AMD GPU、Selkiesモード
-./start-container.sh none         # GPUなし（ソフトウェアレンダリング）
-./start-container.sh all vnc      # NVIDIA GPUでKasmVNCモード
-./start-container.sh intel vnc    # Intel GPUでKasmVNCモード
+./start-container.sh                      # ソフトウェアレンダリング（GPUなし）、Selkiesモード
+./start-container.sh --gpu all            # すべてのGPU（NVIDIA）、Selkiesモード
+./start-container.sh -g intel             # Intel統合GPU、Selkiesモード
+./start-container.sh --gpu amd            # AMD GPU、Selkiesモード
+./start-container.sh --gpu all --vnc      # NVIDIA GPUでKasmVNCモード
+./start-container.sh -g intel -v          # Intel GPUでKasmVNCモード
+./start-container.sh -g 0 -v              # NVIDIA GPU 0でKasmVNC
+# 注：--gpuを指定しない場合はソフトウェアレンダリングがデフォルト
 # 注：キーボードレイアウトはホストシステムから自動検出されます
 
 # 4. ブラウザでアクセス
@@ -184,13 +186,15 @@ IN_LOCALE=JP ./build-user-image.sh # Mozc入力付き日本語環境
     - ドライバーバージョン450.80.02以降
     - Maxwell世代以降
     - NVIDIA Container Toolkitインストール済み
-  - **Intel GPU** ⚠️ 未テスト
+  - **Intel GPU** ✅ テスト済み
     - Intel統合グラフィックス（HD Graphics、Iris、Arc）
     - Quick Sync Videoサポート
     - VA-APIドライバーはコンテナに含まれる
-  - **AMD GPU** ⚠️ 未テスト
+    - **ホスト側のセットアップが必要**（詳細は下記参照）
+  - **AMD GPU** ⚠️ 部分的にテスト済み
     - VCE/VCNエンコーダー付きRadeonグラフィックス
     - VA-APIドライバーはコンテナに含まれる
+    - **ホスト側のセットアップが必要**（詳細は下記参照）
 - **Linuxホスト**（Ubuntu 20.04以降推奨）
 
 ---
@@ -228,6 +232,59 @@ IN_LOCALE=JP ./build-user-image.sh # Mozc入力付き日本語環境
 - ホストディレクトリ（`$HOME`など）をマウントする場合、ファイルの所有権が一致する必要がある
 - UID/GIDが一致しないと、権限エラーが発生する
 - ユーザーイメージは自動的にホストの資格情報に一致する
+
+---
+
+## Intel/AMD GPU ホスト側セットアップ
+
+IntelまたはAMD GPUでハードウェアエンコーディング（VA-API）を使用する場合、ホスト側で以下のセットアップが必要です：
+
+### 1. ユーザーをvideo/renderグループに追加
+
+コンテナがGPUデバイス（`/dev/dri/*`）にアクセスするには、ホストユーザーが`video`と`render`グループのメンバーである必要があります：
+
+```bash
+# ユーザーをvideo/renderグループに追加
+sudo usermod -aG video,render $USER
+
+# グループ変更を反映するため、ログアウトして再ログインまたはシステム再起動
+# 確認：
+groups
+# 出力に「video」と「render」が含まれることを確認
+```
+
+### 2. VA-APIドライバーのインストール（Intelの場合）
+
+Intel GPUでハードウェアエンコーディングを使用する場合：
+
+```bash
+# VA-APIツールとIntelドライバーをインストール
+sudo apt update
+sudo apt install vainfo intel-media-va-driver-non-free
+
+# インストール確認（H.264エンコーディングサポートを確認）：
+vainfo
+# 出力に「VAProfileH264Main : VAEntrypointEncSlice」などが含まれることを確認
+```
+
+### 3. VA-APIドライバーのインストール（AMDの場合）
+
+AMD GPUでハードウェアエンコーディングを使用する場合：
+
+```bash
+# VA-APIツールとAMDドライバーをインストール
+sudo apt update
+sudo apt install vainfo mesa-va-drivers
+
+# インストール確認：
+vainfo
+# 出力に「VAProfileH264Main : VAEntrypointEncSlice」などが含まれることを確認
+```
+
+**注意：**
+- NVIDIA GPUの場合、これらのセットアップは不要です
+- ホスト側のVA-APIが正しく動作していれば、コンテナ内でも自動的に動作します
+- グループ変更後は必ずログアウト/再ログインまたは再起動してください
 
 ---
 
@@ -296,32 +353,35 @@ docker build \
 
 ### コンテナの起動
 
-`start-container.sh`スクリプトにはGPU引数が必要です：
+`start-container.sh`スクリプトはGPUとディスプレイモードのオプション引数を使用します：
 
 ```bash
-# 構文: ./start-container.sh <gpu> [display_mode]
+# 構文: ./start-container.sh [--gpu <type>] [--vnc]
+# デフォルト：オプション未指定の場合はSelkiesでソフトウェアレンダリング
 
 # NVIDIA GPUオプション：
-./start-container.sh all          # 使用可能なすべてのNVIDIA GPUを使用
-./start-container.sh 0            # NVIDIA GPU 0のみを使用
-./start-container.sh 0,1          # NVIDIA GPU 0と1を使用
+./start-container.sh --gpu all            # 使用可能なすべてのNVIDIA GPUを使用
+./start-container.sh -g 0                 # NVIDIA GPU 0のみを使用
+./start-container.sh --gpu 0,1            # NVIDIA GPU 0と1を使用
 
 # Intel/AMD GPUオプション：
-./start-container.sh intel        # Intel統合GPU（Quick Sync Video）を使用
-./start-container.sh amd          # AMD GPU（VCE/VCN）を使用
+./start-container.sh --gpu intel          # Intel統合GPU（Quick Sync Video）を使用
+./start-container.sh -g amd               # AMD GPU（VCE/VCN）を使用
 
 # ソフトウェアレンダリング：
-./start-container.sh none         # GPUなし（ソフトウェアレンダリング）
+./start-container.sh                      # GPUなし（ソフトウェアレンダリング、デフォルト）
+./start-container.sh --gpu none           # GPUなしを明示的に指定
 
-# ディスプレイモードオプション（オプションの第2引数）：
-./start-container.sh all          # Selkies GStreamer（WebRTC、デフォルト）
-./start-container.sh intel vnc    # Intel GPUでKasmVNC（WebSocket経由のVNC）
-./start-container.sh all vnc      # NVIDIA GPUでKasmVNC
+# ディスプレイモードオプション：
+./start-container.sh --gpu all            # Selkies GStreamer（WebRTC、デフォルト）
+./start-container.sh -g intel --vnc       # Intel GPUでKasmVNC（WebSocket経由のVNC）
+./start-container.sh --gpu all -v         # NVIDIA GPUでKasmVNC
+./start-container.sh -v                   # ソフトウェアレンダリングでKasmVNC
 
 # キーボードレイアウトのオーバーライド（デフォルトは自動検出）：
-KEYBOARD_LAYOUT=jp ./start-container.sh intel        # 日本語キーボード
-KEYBOARD_LAYOUT=us ./start-container.sh intel        # USキーボード
-KEYBOARD_LAYOUT=de KEYBOARD_MODEL=pc105 ./start-container.sh all  # ドイツ語キーボード
+KEYBOARD_LAYOUT=jp ./start-container.sh -g intel        # 日本語キーボード
+KEYBOARD_LAYOUT=us ./start-container.sh --gpu intel    # USキーボード
+KEYBOARD_LAYOUT=de KEYBOARD_MODEL=pc105 ./start-container.sh -g all  # ドイツ語キーボード
 ```
 
 その後、ブラウザで開く：<http://localhost:8080>

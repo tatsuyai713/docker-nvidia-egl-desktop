@@ -3,35 +3,57 @@
 
 set -e
 
-# Check for GPU argument
-if [ $# -eq 0 ]; then
-    echo "Error: GPU configuration required"
+# Default values
+GPU_ARG="none"
+DISPLAY_MODE="selkies"
+
+# Show usage
+show_usage() {
+    echo "Usage: $0 [options]"
     echo ""
-    echo "Usage: $0 <gpu_option> [vnc]"
-    echo ""
-    echo "GPU Options:"
-    echo "  all       - Use all available NVIDIA GPUs"
-    echo "  none      - No GPU support (software rendering)"
-    echo "  0,1,2...  - Use specific NVIDIA GPU(s) by device number"
-    echo "  intel     - Use Intel integrated GPU"
-    echo "  amd       - Use AMD GPU"
-    echo ""
-    echo "Display Options (optional):"
-    echo "  vnc       - Use KasmVNC instead of Selkies GStreamer"
+    echo "Options:"
+    echo "  -g, --gpu <type>    GPU configuration (default: none)"
+    echo "                      all       - Use all available NVIDIA GPUs"
+    echo "                      none      - No GPU support (software rendering)"
+    echo "                      0,1,2...  - Use specific NVIDIA GPU(s) by device number"
+    echo "                      intel     - Use Intel integrated GPU"
+    echo "                      amd       - Use AMD GPU"
+    echo "  -v, --vnc           Use KasmVNC instead of Selkies GStreamer"
+    echo "  -h, --help          Show this help message"
     echo ""
     echo "Examples:"
-    echo "  $0 all        # Use all NVIDIA GPUs with Selkies"
-    echo "  $0 none       # No GPU with Selkies"
-    echo "  $0 0          # Use NVIDIA GPU 0 with Selkies"
-    echo "  $0 intel      # Use Intel GPU with Selkies"
-    echo "  $0 amd        # Use AMD GPU with Selkies"
-    echo "  $0 all vnc    # Use all NVIDIA GPUs with KasmVNC"
+    echo "  $0 --gpu all              # Use all NVIDIA GPUs with Selkies"
+    echo "  $0 -g intel               # Use Intel GPU with Selkies"
+    echo "  $0                        # Use software rendering (no GPU)"
+    echo "  $0 --gpu all --vnc        # Use all NVIDIA GPUs with KasmVNC"
+    echo "  $0 -g 0 -v                # Use NVIDIA GPU 0 with KasmVNC"
+    echo "  $0 -g intel -v            # Use Intel GPU with KasmVNC"
     echo ""
-    exit 1
-fi
+}
 
-GPU_ARG="$1"
-DISPLAY_MODE="${2:-selkies}"
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -g|--gpu)
+            GPU_ARG="$2"
+            shift 2
+            ;;
+        -v|--vnc)
+            DISPLAY_MODE="vnc"
+            shift
+            ;;
+        -h|--help)
+            show_usage
+            exit 0
+            ;;
+        *)
+            echo "Error: Unknown option: $1"
+            echo ""
+            show_usage
+            exit 1
+            ;;
+    esac
+done
 
 # Configuration
 CONTAINER_NAME="${CONTAINER_NAME:-devcontainer-egl-desktop-$(whoami)}"
@@ -110,14 +132,21 @@ if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
     
     # Check if display mode is different from existing container
     EXISTING_KASMVNC=$(docker inspect "${CONTAINER_NAME}" --format '{{range .Config.Env}}{{println .}}{{end}}' | grep "^KASMVNC_ENABLE=" | cut -d= -f2)
+    
+    # Build current command for display
+    CURRENT_GPU_OPT=""
+    if [ "${GPU_ARG}" != "none" ]; then
+        CURRENT_GPU_OPT="--gpu ${GPU_ARG}"
+    fi
+    
     if [ "${DISPLAY_MODE}" = "vnc" ] && [ "${EXISTING_KASMVNC}" = "false" ]; then
         echo ""
         echo "⚠️  WARNING: Container was created with Selkies mode, but you're trying to start it with KasmVNC mode."
         echo "    Display mode cannot be changed for existing containers."
         echo ""
         echo "Options:"
-        echo "  1. Keep using Selkies mode: ./start-container.sh ${GPU_ARG}"
-        echo "  2. Delete and recreate with KasmVNC: ./stop-container.sh rm && ./start-container.sh ${GPU_ARG} vnc"
+        echo "  1. Keep using Selkies mode: ./start-container.sh ${CURRENT_GPU_OPT}"
+        echo "  2. Delete and recreate with KasmVNC: ./stop-container.sh rm && ./start-container.sh ${CURRENT_GPU_OPT} --vnc"
         echo ""
         exit 1
     elif [ "${DISPLAY_MODE}" = "selkies" ] && [ "${EXISTING_KASMVNC}" = "true" ]; then
@@ -126,8 +155,8 @@ if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
         echo "    Display mode cannot be changed for existing containers."
         echo ""
         echo "Options:"
-        echo "  1. Keep using KasmVNC mode: ./start-container.sh ${GPU_ARG} vnc"
-        echo "  2. Delete and recreate with Selkies: ./stop-container.sh rm && ./start-container.sh ${GPU_ARG}"
+        echo "  1. Keep using KasmVNC mode: ./start-container.sh ${CURRENT_GPU_OPT} --vnc"
+        echo "  2. Delete and recreate with Selkies: ./stop-container.sh rm && ./start-container.sh ${CURRENT_GPU_OPT}"
         echo ""
         exit 1
     fi
@@ -171,6 +200,19 @@ echo "========================================"
 # Build docker run command
 CMD="docker run --name ${CONTAINER_NAME}"
 
+# Add video and render groups for GPU access (use host GIDs)
+# Required for all GPU types to access /dev/dri devices
+VIDEO_GID=$(getent group video | cut -d: -f3)
+RENDER_GID=$(getent group render | cut -d: -f3)
+if [ -n "${VIDEO_GID}" ]; then
+    CMD="${CMD} --group-add=${VIDEO_GID}"
+    echo "Adding video group (GID: ${VIDEO_GID})"
+fi
+if [ -n "${RENDER_GID}" ]; then
+    CMD="${CMD} --group-add=${RENDER_GID}"
+    echo "Adding render group (GID: ${RENDER_GID})"
+fi
+
 # Interactive or detached
 if [ "${DETACHED}" = "true" ]; then
     CMD="${CMD} -d"
@@ -189,12 +231,13 @@ if [ "${GPU_ARG}" = "none" ]; then
     CMD="${CMD} -e ENABLE_NVIDIA=false"
     VIDEO_ENCODER="x264enc"
 elif [ "${GPU_ARG}" = "intel" ]; then
-    # Intel GPU - use for rendering but software encoding if VA-API not working
+    # Intel GPU with VA-API hardware acceleration
     CMD="${CMD} --device=/dev/dri:rwm"
     CMD="${CMD} -e ENABLE_NVIDIA=false"
-    # Try VA-API hardware encoding first, will fallback to software if unavailable
-    VIDEO_ENCODER="x264enc"
-    echo "Using Intel GPU for rendering with software encoding (x264)"
+    CMD="${CMD} -e LIBVA_DRIVER_NAME=iHD"
+    # Intel Quick Sync Video encoder via VA-API
+    VIDEO_ENCODER="vah264enc"
+    echo "Using Intel GPU with VA-API hardware acceleration (Quick Sync Video)"
 elif [ "${GPU_ARG}" = "amd" ]; then
     # AMD GPU - use for rendering but software encoding if VA-API not working
     CMD="${CMD} --device=/dev/dri:rwm"
