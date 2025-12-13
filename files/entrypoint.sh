@@ -102,6 +102,39 @@ fi
 # Wait for X server to start
 echo 'Waiting for X Socket' && until [ -S "/tmp/.X11-unix/X${DISPLAY#*:}" ]; do sleep 0.5; done && echo 'X Server is ready'
 
+# Apply keyboard layout configuration
+if [ -n "${KEYBOARD_LAYOUT}" ]; then
+  echo "Configuring keyboard layout: ${KEYBOARD_LAYOUT} ${KEYBOARD_VARIANT:+(variant: ${KEYBOARD_VARIANT})}"
+  
+  # Set XKB for X server
+  if [ -n "${KEYBOARD_VARIANT}" ]; then
+    setxkbmap -display "${DISPLAY}" -layout "${KEYBOARD_LAYOUT}" -variant "${KEYBOARD_VARIANT}" -model "${KEYBOARD_MODEL:-pc105}" 2>/dev/null || true
+  else
+    setxkbmap -display "${DISPLAY}" -layout "${KEYBOARD_LAYOUT}" -model "${KEYBOARD_MODEL:-pc105}" 2>/dev/null || true
+  fi
+  
+  # Configure KDE keyboard settings
+  mkdir -p ~/.config
+  cat > ~/.config/kxkbrc << EOF
+[Layout]
+DisplayNames=
+LayoutList=${KEYBOARD_LAYOUT}
+Model=${KEYBOARD_MODEL:-pc105}
+ResetOldOptions=true
+Use=true
+VariantList=${KEYBOARD_VARIANT}
+EOF
+  
+  # Create .Xkbmap for session startup
+  if [ -n "${KEYBOARD_VARIANT}" ]; then
+    echo "-layout ${KEYBOARD_LAYOUT} -variant ${KEYBOARD_VARIANT} -model ${KEYBOARD_MODEL:-pc105}" > ~/.Xkbmap
+  else
+    echo "-layout ${KEYBOARD_LAYOUT} -model ${KEYBOARD_MODEL:-pc105}" > ~/.Xkbmap
+  fi
+  
+  echo "Keyboard configuration applied"
+fi
+
 # Resize the screen to the provided size
 /usr/local/bin/selkies-gstreamer-resize "${DISPLAY_SIZEW}x${DISPLAY_SIZEH}"
 

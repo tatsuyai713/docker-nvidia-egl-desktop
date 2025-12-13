@@ -95,6 +95,11 @@ ENV PULSE_SERVER="unix:${XDG_RUNTIME_DIR}/pulse/native"
 ENV DBUS_SYSTEM_BUS_ADDRESS="unix:path=${XDG_RUNTIME_DIR}/dbus-system-bus"
 # Set user-specific DISPLAY number based on UID for multi-user environments
 ENV DISPLAY=":${USER_UID}"
+# Keyboard layout configuration (default: us, can be overridden at runtime)
+# For Japanese keyboards, use layout=jp and model=jp106
+ENV KEYBOARD_LAYOUT="us" \
+    KEYBOARD_VARIANT="" \
+    KEYBOARD_MODEL="pc105"
 
 # Create user runtime directory
 RUN mkdir -p /tmp/runtime-${USER_NAME} && \
@@ -263,6 +268,11 @@ RUN for chrome_bin in google-chrome google-chrome-beta google-chrome-unstable; d
 RUN if [ -f /usr/share/applications/google-chrome.desktop ]; then \
     sed -i -e "s#Exec=/usr/bin/google-chrome-stable#Exec=/usr/local/bin/google-chrome-stable#g" /usr/share/applications/google-chrome.desktop; \
     fi
+
+# Configure keyboard layout based on environment variable
+# This creates the KDE keyboard config file that will be populated at runtime
+RUN mkdir -p /home/${USER_NAME}/.config && \
+    chown ${USER_UID}:${USER_GID} /home/${USER_NAME}/.config
 
 # Set ownership of all user files
 RUN chown -R ${USER_UID}:${USER_GID} /home/${USER_NAME}

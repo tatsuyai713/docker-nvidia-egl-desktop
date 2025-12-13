@@ -23,6 +23,7 @@ export PULSE_SERVER="${PULSE_SERVER:-unix:${PULSE_RUNTIME_PATH:-${XDG_RUNTIME_DI
 mkdir -pm700 ~/.vnc
 (echo "${SELKIES_BASIC_AUTH_PASSWORD:-${PASSWD}}"; echo "${SELKIES_BASIC_AUTH_PASSWORD:-${PASSWD}}";) | kasmvncpasswd -u "${SELKIES_BASIC_AUTH_USER:-${USER}}" -ow ~/.kasmpasswd
 touch ~/.vnc/.de-was-selected ~/.vnc/kasmvnc.yaml
+
 export KASMVNC_DISPLAY="${KASMVNC_DISPLAY:-:21}"
 yq -i "
 .command_line.prompt = false |
@@ -94,8 +95,20 @@ fi
 
 # Run KasmVNC
 if ls ~/.vnc/*\:"${KASMVNC_DISPLAY#*:}".pid >/dev/null 2>&1; then kasmvncserver -kill "${KASMVNC_DISPLAY}"; fi
+
+# Start KasmVNC server without keyboard options (they are not supported as command-line arguments)
 kasmvncserver "${KASMVNC_DISPLAY}" -geometry "${DISPLAY_SIZEW}x${DISPLAY_SIZEH}" -depth "${DISPLAY_CDEPTH}" -noxstartup -FrameRate "${DISPLAY_REFRESH}" -RectThreads "${KASMVNC_THREADS}" -interface 127.0.0.1 -websocketPort "${SELKIES_PORT:-8081}" -disableBasicAuth -AlwaysShared -BlacklistTimeout 0 ${KASMVNC_FLAG}
 
 until [ -S "/tmp/.X11-unix/X${KASMVNC_DISPLAY#*:}" ]; do sleep 0.5; done;
+
+# Apply keyboard layout after KasmVNC X server is ready
+if [ -n "${KEYBOARD_LAYOUT}" ]; then
+    echo "Configuring KasmVNC keyboard: layout=${KEYBOARD_LAYOUT}, model=${KEYBOARD_MODEL:-pc105}${KEYBOARD_VARIANT:+, variant=${KEYBOARD_VARIANT}}"
+    if [ -n "${KEYBOARD_VARIANT}" ]; then
+        setxkbmap -display "${KASMVNC_DISPLAY}" -layout "${KEYBOARD_LAYOUT}" -variant "${KEYBOARD_VARIANT}" -model "${KEYBOARD_MODEL:-pc105}" 2>/dev/null || echo "Warning: setxkbmap failed"
+    else
+        setxkbmap -display "${KASMVNC_DISPLAY}" -layout "${KEYBOARD_LAYOUT}" -model "${KEYBOARD_MODEL:-pc105}" 2>/dev/null || echo "Warning: setxkbmap failed"
+    fi
+fi
 
 kasmxproxy -a "${DISPLAY}" -v "${KASMVNC_DISPLAY}" -f "${DISPLAY_REFRESH}" ${KASMVNC_PROXY_FLAG}

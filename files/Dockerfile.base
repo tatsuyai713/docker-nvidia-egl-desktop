@@ -331,6 +331,9 @@ Pin-Priority: -1" > /etc/apt/preferences.d/firefox-nosnap && \
     mkdir -pm755 /etc/apt/trusted.gpg.d && curl -fsSL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x738BEB9321D1AAEC13EA9391AEBDF4819BE21867" | gpg --dearmor -o /etc/apt/trusted.gpg.d/mozillateam-ubuntu-ppa.gpg && \
     mkdir -pm755 /etc/apt/sources.list.d && echo "deb https://ppa.launchpadcontent.net/mozillateam/ppa/ubuntu $(grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '\"') main" > "/etc/apt/sources.list.d/mozillateam-ubuntu-ppa-$(grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '\"').list" && \
     apt-get update && apt-get install --no-install-recommends -y \
+        ubuntu-standard \
+        kubuntu-desktop \
+        kubuntu-settings-desktop \
         kde-baseapps \
         plasma-desktop \
         plasma-workspace \
@@ -377,6 +380,8 @@ Pin-Priority: -1" > /etc/apt/preferences.d/firefox-nosnap && \
         kde-config-fcitx \
         kde-config-gtk-style \
         kde-config-gtk-style-preview \
+        kde-config-screenlocker \
+        kde-config-sddm \
         kdeconnect \
         kdegraphics-thumbnailers \
         kde-spectacle \
@@ -391,10 +396,20 @@ Pin-Priority: -1" > /etc/apt/preferences.d/firefox-nosnap && \
         kio-extras \
         kmag \
         kmenuedit \
-        kmix \
         kmousetool \
         kmouth \
         ksshaskpass \
+        plasma-nm \
+        powerdevil \
+        bluedevil \
+        kde-cli-tools \
+        kscreen \
+        ksystemlog \
+        systemsettings \
+        plasma-pa \
+        plasma-systemmonitor \
+        kgamma5 \
+        kwrited \
         ktimer \
         kwin-addons \
         kwin-x11 \
@@ -437,7 +452,6 @@ Pin-Priority: -1" > /etc/apt/preferences.d/firefox-nosnap && \
         software-properties-qt \
         sonnet-plugins \
         sweeper \
-        systemsettings \
         ubuntu-drivers-common \
         vlc \
         vlc-plugin-access-extra \
@@ -449,7 +463,78 @@ Pin-Priority: -1" > /etc/apt/preferences.d/firefox-nosnap && \
         xdg-user-dirs \
         xdg-utils \
         firefox \
-        transmission-qt && \
+        transmission-qt \
+        konsole \
+        kate \
+        krita \
+        elisa \
+        kamoso \
+        k3b \
+        partitionmanager \
+        skanlite \
+        kcolorchooser \
+        kruler \
+        kolourpaint \
+        kompare \
+        krdc \
+        krfb \
+        ktorrent \
+        konversation \
+        akregator \
+        kontact \
+        kmail \
+        korganizer \
+        kaddressbook \
+        knotes \
+        ktnef \
+        kleopatra \
+        kdepim-addons \
+        kdepim-runtime \
+        akonadi-backend-sqlite \
+        plasma-discover-backend-flatpak \
+        plasma-discover-backend-snap \
+        fwupd \
+        kpat \
+        kmines \
+        ksudoku \
+        ktuberling \
+        kubrick \
+        bovo \
+        kjumpingcube \
+        kmahjongg \
+        kolf \
+        konquest \
+        kbreakout \
+        kalzium \
+        kanagram \
+        kbruch \
+        kgeography \
+        khangman \
+        kig \
+        kiten \
+        klettres \
+        kmplot \
+        ktouch \
+        kturtle \
+        kwordquiz \
+        marble \
+        rocs \
+        step \
+        umbrello \
+        cantor \
+        kalgebra \
+        kio-gdrive \
+        kaccounts-integration \
+        kaccounts-providers \
+        kdenetwork-filesharing \
+        kio-audiocd \
+        kio-fuse \
+        samba \
+        cifs-utils \
+        smbclient \
+        pulseaudio-module-bluetooth \
+        fonts-noto-cjk \
+        fonts-noto-color-emoji && \
     apt-get install --install-recommends -y \
         libreoffice \
         libreoffice-kf5 \

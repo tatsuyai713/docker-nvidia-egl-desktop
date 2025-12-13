@@ -53,6 +53,41 @@ FRAMERATE="${FRAMERATE:-60}"
 # Audio
 AUDIO_BITRATE="${AUDIO_BITRATE:-128000}"
 
+# Keyboard layout configuration
+# Auto-detect keyboard layout from host system if not explicitly set
+if [ -z "${KEYBOARD_LAYOUT}" ]; then
+    echo "Auto-detecting keyboard layout from host system..."
+    
+    # Prioritize system default from /etc/default/keyboard
+    if [ -f /etc/default/keyboard ]; then
+        HOST_LAYOUT=$(grep '^XKBLAYOUT=' /etc/default/keyboard 2>/dev/null | cut -d= -f2 | tr -d '"')
+        HOST_MODEL=$(grep '^XKBMODEL=' /etc/default/keyboard 2>/dev/null | cut -d= -f2 | tr -d '"')
+        HOST_VARIANT=$(grep '^XKBVARIANT=' /etc/default/keyboard 2>/dev/null | cut -d= -f2 | tr -d '"')
+    fi
+    
+    # Fall back to current X session if /etc/default/keyboard not available
+    if [ -z "${HOST_LAYOUT}" ] && command -v setxkbmap >/dev/null 2>&1 && [ -n "$DISPLAY" ]; then
+        HOST_LAYOUT=$(setxkbmap -query 2>/dev/null | grep layout | awk '{print $2}')
+        HOST_MODEL=$(setxkbmap -query 2>/dev/null | grep model | awk '{print $2}')
+        HOST_VARIANT=$(setxkbmap -query 2>/dev/null | grep variant | awk '{print $2}')
+    fi
+    
+    # Set detected values
+    if [ -n "${HOST_LAYOUT}" ]; then
+        KEYBOARD_LAYOUT="${HOST_LAYOUT}"
+        KEYBOARD_MODEL="${HOST_MODEL:-pc105}"
+        KEYBOARD_VARIANT="${HOST_VARIANT}"
+        echo "✓ Detected host keyboard: layout=${KEYBOARD_LAYOUT}, model=${KEYBOARD_MODEL}${KEYBOARD_VARIANT:+, variant=${KEYBOARD_VARIANT}}"
+    else
+        # Default to US keyboard
+        KEYBOARD_LAYOUT="us"
+        KEYBOARD_MODEL="pc105"
+        echo "⚠ Could not detect host keyboard, using default (us)"
+    fi
+else
+    echo "Using specified keyboard layout: ${KEYBOARD_LAYOUT}"
+fi
+
 # SSL certificates (for custom certificates)
 CERT_PATH="${CERT_PATH:-}"
 KEY_PATH="${KEY_PATH:-}"
@@ -160,6 +195,15 @@ fi
 CMD="${CMD} -e DISPLAY_SIZEW=${DISPLAY_WIDTH}"
 CMD="${CMD} -e DISPLAY_SIZEH=${DISPLAY_HEIGHT}"
 CMD="${CMD} -e DISPLAY_REFRESH=${DISPLAY_REFRESH}"
+
+# Keyboard layout
+CMD="${CMD} -e KEYBOARD_LAYOUT=${KEYBOARD_LAYOUT}"
+if [ -n "${KEYBOARD_VARIANT}" ]; then
+    CMD="${CMD} -e KEYBOARD_VARIANT=${KEYBOARD_VARIANT}"
+fi
+if [ -n "${KEYBOARD_MODEL}" ]; then
+    CMD="${CMD} -e KEYBOARD_MODEL=${KEYBOARD_MODEL}"
+fi
 
 # Video encoding
 CMD="${CMD} -e SELKIES_ENCODER=${VIDEO_ENCODER}"
