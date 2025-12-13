@@ -435,6 +435,10 @@ if [ "${ENABLE_TURN}" = "true" ] && [ "${DISPLAY_MODE}" = "selkies" ]; then
         echo "Enabling TURN server for LAN access (${LAN_IP}:${TURN_PORT}, UDP ports ${UDP_PORT_START}-${UDP_PORT_END})"
     else
         CMD="${CMD} -e SELKIES_TURN_PORT=${TURN_PORT}"
+        # Ensure SELKIES_TURN_HOST and TURN_EXTERNAL_IP are set so the container
+        # will start the bundled coTURN server even when LAN IP detection fails.
+        CMD="${CMD} -e SELKIES_TURN_HOST=127.0.0.1"
+        CMD="${CMD} -e TURN_EXTERNAL_IP=127.0.0.1"
         echo "Enabling TURN server ports (TCP/UDP ${TURN_PORT}, UDP ${UDP_PORT_START}-${UDP_PORT_END})"
     fi
 fi
