@@ -23,11 +23,14 @@ docker pull ghcr.io/tatsuyai713/devcontainer-ubuntu-egl-desktop-base:24.04
 # 4) Start container with NVIDIA GPUs (Selkies)
 ./start-container.sh --gpu nvidia --all
 
-# 5) Start container with KasmVNC (NVIDIA)
-./start-container.sh --gpu nvidia --all --vnc
+# 5) Start container with KasmVNC (NVIDIA, clipboard support)
+./start-container.sh --gpu nvidia --all --vnc-type kasm
 
-# 6) Open in browser (example for UID 1000)
-# http://localhost:11000  (or https://localhost:11000 if HTTPS enabled)
+# 6) Start container with noVNC (NVIDIA, with clipboard support)
+./start-container.sh --gpu nvidia --all --vnc-type novnc
+
+# 7) Start container with noVNC using short option (Intel)
+./start-container.sh --gpu intel -v novnc
 ```
 
 
@@ -78,7 +81,7 @@ This repository is an enhanced fork oriented around Devcontainer usage. We kept 
 
 - **🖥️ Dual Display Modes:** Choose your streaming protocol
   - **Selkies GStreamer (default):** WebRTC with low latency, better for gaming
-  - **KasmVNC:** VNC over WebSocket, better compatibility, works without GPU
+  - **KasmVNC:** VNC over WebSocket, better compatibility, works without GPU, clipboard support
   - Switch with simple `vnc` argument
 
 - **🔐 SSL Certificate Management:** Automated HTTPS setup
@@ -95,7 +98,7 @@ This repository is an enhanced fork oriented around Devcontainer usage. We kept 
 
 - **🛠️ Complete Management Scripts:** Shell scripts for all operations
   - `build-user-image.sh` - Build with password prompt
-  - `start-container.sh <gpu> [vnc]` - Start with GPU selection
+  - `start-container.sh [--gpu <type>] [--vnc-type <type> | -v <type>]` - Start with GPU selection and VNC type
   - `stop/restart/logs/shell-container.sh` - Lifecycle management
   - `commit-container.sh` - Save your changes
   - `generate-ssl-cert.sh` - SSL certificate generator
@@ -168,9 +171,10 @@ IN_LOCALE=JP ./build-user-image.sh # Japanese environment with Mozc input
 ./start-container.sh --gpu nvidia --all   # With all GPUs (NVIDIA), Selkies mode
 ./start-container.sh --gpu intel          # With Intel integrated GPU, Selkies mode
 ./start-container.sh --gpu amd            # With AMD GPU, Selkies mode
-./start-container.sh --gpu nvidia --all --vnc      # KasmVNC mode with NVIDIA GPUs
-./start-container.sh --gpu intel --vnc    # KasmVNC mode with Intel GPU
-./start-container.sh --gpu nvidia --num 0 -v              # NVIDIA GPU 0 with KasmVNC
+./start-container.sh --gpu nvidia --all --vnc-type kasm      # KasmVNC mode with NVIDIA GPUs (clipboard supported)
+./start-container.sh --gpu intel --vnc-type novnc    # noVNC mode with Intel GPU (clipboard supported)
+./start-container.sh --gpu nvidia --num 0 --vnc-type kasm              # NVIDIA GPU 0 with KasmVNC (clipboard supported)
+./start-container.sh --gpu nvidia --all --vnc-type novnc     # noVNC mode with NVIDIA GPUs (clipboard supported)
 # Note: Default is software rendering if --gpu not specified
 # Note: Keyboard layout is auto-detected from your host system
 
@@ -382,7 +386,7 @@ docker build \
 The `start-container.sh` script uses optional arguments for GPU and display mode:
 
 ```bash
-# Syntax: ./start-container.sh [--gpu <type>] [--vnc]
+# Syntax: ./start-container.sh [--gpu <type>] [--vnc-type <type> | -v <type>]
 # Default: Software rendering with Selkies if no options specified
 
 # NVIDIA GPU options:
@@ -400,9 +404,9 @@ The `start-container.sh` script uses optional arguments for GPU and display mode
 
 # Display mode options:
 ./start-container.sh --gpu nvidia --all            # Selkies GStreamer (WebRTC, default)
-./start-container.sh --gpu intel --vnc       # KasmVNC (VNC over WebSocket) with Intel GPU
-./start-container.sh --gpu nvidia --all -v         # KasmVNC with NVIDIA GPUs
-./start-container.sh -v                   # KasmVNC with software rendering
+./start-container.sh --gpu intel --vnc-type kasm       # KasmVNC (VNC over WebSocket, clipboard support) with Intel GPU
+./start-container.sh --gpu nvidia --all --vnc-type novnc         # noVNC (with clipboard support) with NVIDIA GPUs
+./start-container.sh --vnc-type novnc                   # noVNC with software rendering
 
 # Keyboard layout override (auto-detected by default):
 KEYBOARD_LAYOUT=jp ./start-container.sh --gpu intel        # Japanese keyboard
@@ -511,7 +515,7 @@ CONTAINER_NAME=my-desktop ./start-container.sh --gpu nvidia --all
 **Container Persistence:**
 - By default, stopped containers persist and can be restarted
 - Use `rm` option to completely remove the container
-- Restart with: `./start-container.sh [--gpu <type>] [--vnc]`
+- Restart with: `./start-container.sh [--gpu <type>] [--vnc-type <type>]`
 
 ---
 
@@ -522,7 +526,7 @@ CONTAINER_NAME=my-desktop ./start-container.sh --gpu nvidia --all
 | Script | Description | Usage |
 |--------|-------------|-------|
 | `build-user-image.sh` | Build your user-specific image | `./build-user-image.sh` or `IN_LOCALE=JP ./build-user-image.sh` |
-| `start-container.sh` | Start the desktop container | `./start-container.sh [--gpu <type>] [--vnc]` |
+| `start-container.sh` | Start the desktop container | `./start-container.sh [--gpu <type>] [--vnc-type <type>]` |
 | `stop-container.sh` | Stop the container | `./stop-container.sh [rm\|remove]` |
 | `generate-ssl-cert.sh` | Generate self-signed SSL certificate | `./generate-ssl-cert.sh` |
 

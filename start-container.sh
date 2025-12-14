@@ -7,7 +7,7 @@ set -e
 GPU_VENDOR="none"   # one of: none, intel, amd, nvidia
 GPU_ALL="false"     # when vendor is nvidia, whether to use all GPUs
 GPU_NUMS=""         # when vendor is nvidia, specific device numbers (comma-separated)
-DISPLAY_MODE="selkies"
+VNC_TYPE="selkies"  # one of: selkies, kasm, novnc
 ENABLE_TURN="true"
 
 # Show usage
@@ -22,7 +22,10 @@ show_usage() {
     echo "                      none      - No GPU support (software rendering)"
     echo "  --all                Used with --gpu nvidia to select all NVIDIA GPUs"
     echo "  --num <n[,m]>        Used with --gpu nvidia to select specific device numbers (comma-separated)"
-    echo "  -v, --vnc           Use KasmVNC instead of Selkies GStreamer"
+    echo "  -v, --vnc-type <type>    VNC type (default: selkies)"
+    echo "                      selkies   - Selkies GStreamer (WebRTC)"
+    echo "                      kasm      - KasmVNC"
+    echo "                      novnc     - noVNC (with clipboard support)"
     echo "  -h, --help          Show this help message"
     echo ""
     echo "Note: TURN server is enabled by default for remote Selkies access."
@@ -32,10 +35,10 @@ show_usage() {
     echo "  $0 --gpu nvidia --all             # Use all NVIDIA GPUs with Selkies"
     echo "  $0 --gpu intel                     # Use Intel GPU with Selkies"
     echo "  $0                                 # Use software rendering (no GPU)"
-    echo "  $0 --gpu nvidia --all --vnc        # Use all NVIDIA GPUs with KasmVNC"
-    echo "  $0 --gpu nvidia --num 0 --vnc      # Use NVIDIA GPU 0 with KasmVNC"
-    echo "  $0 --gpu intel --vnc               # Use Intel GPU with KasmVNC"
-    echo "  $0 --gpu nvidia --num 0,1 --vnc    # Use NVIDIA GPUs 0 and 1 with KasmVNC"
+    echo "  $0 --gpu nvidia --all --vnc-type kasm        # Use all NVIDIA GPUs with KasmVNC"
+    echo "  $0 --gpu nvidia --num 0 --vnc-type kasm      # Use NVIDIA GPU 0 with KasmVNC"
+    echo "  $0 --gpu intel --vnc-type novnc               # Use Intel GPU with noVNC"
+    echo "  $0 --gpu nvidia --num 0,1 --vnc-type novnc    # Use NVIDIA GPUs 0 and 1 with noVNC"
     echo ""
 }
 
@@ -81,8 +84,25 @@ while [[ $# -gt 0 ]]; do
             GPU_ALL="true"
             shift
             ;;
-        -v|--vnc)
-            DISPLAY_MODE="vnc"
+        --vnc-type|-v)
+            if [ -z "$2" ]; then
+                echo "Error: --vnc-type requires an argument (selkies|kasm|novnc)"
+                exit 1
+            fi
+            case "${2}" in
+                selkies|kasm|novnc)
+                    VNC_TYPE="${2}"
+                    ;;
+                *)
+                    echo "Error: Unknown VNC type: ${2}"
+                    exit 1
+                    ;;
+            esac
+            shift 2
+            ;;
+        --vnc)
+            # Legacy support for --vnc (maps to kasm)
+            VNC_TYPE="kasm"
             shift
             ;;
         -h|--help)
@@ -118,7 +138,9 @@ fi
 # Configuration
 CONTAINER_NAME="${CONTAINER_NAME:-devcontainer-egl-desktop-$(whoami)}"
 IMAGE_NAME="${IMAGE_NAME:-devcontainer-ubuntu-egl-desktop-$(whoami):24.04}"
-ENABLE_HTTPS="${ENABLE_HTTPS:-false}"
+
+# Enable HTTPS for all VNC types (required for clipboard API)
+ENABLE_HTTPS="${ENABLE_HTTPS:-true}"
 
 # Port configuration (UID-based for multi-user support)
 USER_UID=$(id -u)
@@ -217,7 +239,7 @@ if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
         fi
     fi
     
-    if [ "${DISPLAY_MODE}" = "vnc" ] && [ "${EXISTING_KASMVNC}" = "false" ]; then
+    if [ "${VNC_TYPE}" = "kasm" ] && [ "${EXISTING_KASMVNC}" = "false" ]; then
         echo ""
         echo "⚠️  WARNING: Container was created with Selkies mode, but you're trying to start it with KasmVNC mode."
         echo "    Display mode cannot be changed for existing containers."
@@ -227,7 +249,7 @@ if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
         echo "  2. Delete and recreate with KasmVNC: ./stop-container.sh rm && ./start-container.sh ${CURRENT_GPU_OPT} --vnc"
         echo ""
         exit 1
-    elif [ "${DISPLAY_MODE}" = "selkies" ] && [ "${EXISTING_KASMVNC}" = "true" ]; then
+    elif [ "${VNC_TYPE}" = "selkies" ] && [ "${EXISTING_KASMVNC}" = "true" ]; then
         echo ""
         echo "⚠️  WARNING: Container was created with KasmVNC mode, but you're trying to start it with Selkies mode."
         echo "    Display mode cannot be changed for existing containers."
@@ -286,7 +308,7 @@ if [ "${GPU_VENDOR}" = "nvidia" ]; then
     fi
 fi
 echo "GPU: ${GPU_DESC}"
-echo "Display: ${DISPLAY_MODE}"
+echo "Display: ${VNC_TYPE}"
 echo "========================================"
 
 # Build docker run command
@@ -377,12 +399,8 @@ CMD="${CMD} -e SELKIES_FRAMERATE=${FRAMERATE}"
 # Audio
 CMD="${CMD} -e SELKIES_AUDIO_BITRATE=${AUDIO_BITRATE}"
 
-# Display mode (Selkies or KasmVNC)
-if [ "${DISPLAY_MODE}" = "vnc" ]; then
-    CMD="${CMD} -e KASMVNC_ENABLE=true"
-else
-    CMD="${CMD} -e KASMVNC_ENABLE=false"
-fi
+# Display mode (Selkies, KasmVNC, or noVNC)
+CMD="${CMD} -e VNC_TYPE=${VNC_TYPE}"
 
 # HTTPS configuration
 if [ "${ENABLE_HTTPS}" = "true" ]; then
@@ -412,7 +430,7 @@ fi
 CMD="${CMD} -p ${HTTPS_PORT}:8080"
 
 # TURN server ports (Selkies mode only, for remote access)
-if [ "${ENABLE_TURN}" = "true" ] && [ "${DISPLAY_MODE}" = "selkies" ]; then
+if [ "${ENABLE_TURN}" = "true" ] && [ "${VNC_TYPE}" = "selkies" ]; then
     CMD="${CMD} -p ${TURN_PORT}:3478/tcp"
     CMD="${CMD} -p ${TURN_PORT}:3478/udp"
     CMD="${CMD} -p ${UDP_PORT_START}-${UDP_PORT_END}:${UDP_PORT_START}-${UDP_PORT_END}/udp"
@@ -443,7 +461,7 @@ fi
 CMD="${CMD} -v ${HOME}:/home/$(whoami)/host_home"
 
 # Mount host PulseAudio socket for audio support (KasmVNC mode only)
-if [ "${DISPLAY_MODE}" = "vnc" ] && [ -S "/run/user/$(id -u)/pulse/native" ]; then
+if [ "${VNC_TYPE}" = "kasm" ] && [ -S "/run/user/$(id -u)/pulse/native" ]; then
     CMD="${CMD} -e PULSE_SERVER=unix:/tmp/pulse/native"
     CMD="${CMD} -e PULSE_COOKIE=/tmp/pulse/cookie"
     CMD="${CMD} -v /run/user/$(id -u)/pulse/native:/tmp/pulse/native"

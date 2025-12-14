@@ -247,4 +247,5 @@ selkies-gstreamer \
     --enable_basic_auth="false" \
     --enable_metrics_http="true" \
     --metrics_http_port="${SELKIES_METRICS_HTTP_PORT:-9081}" \
+    --enable_clipboard="true" \
     $@

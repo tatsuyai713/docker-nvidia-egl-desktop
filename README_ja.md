@@ -21,10 +21,16 @@ docker pull ghcr.io/tatsuyai713/devcontainer-ubuntu-egl-desktop-base:24.04
 # 4) NVIDIA GPUで起動（Selkies）
 ./start-container.sh --gpu nvidia --all
 
-# 5) KasmVNCで起動（NVIDIA）
-./start-container.sh --gpu nvidia --all --vnc
+# 5) KasmVNCで起動（NVIDIA、クリップボード対応）
+./start-container.sh --gpu nvidia --all --vnc-type kasm
 
-# 6) ブラウザで開く（例：UID 1000 の場合）
+# 6) noVNCで起動（NVIDIA、クリップボード対応）
+./start-container.sh --gpu nvidia --all --vnc-type novnc
+
+# 7) noVNCを短縮オプションで起動（Intel）
+./start-container.sh --gpu intel -v novnc
+
+# 8) ブラウザで開く（例：UID 1000 の場合）
 # http://localhost:11000  （HTTPS有効時は https://localhost:11000）
 ```
 
@@ -86,7 +92,7 @@ autoload -U compinit && compinit
 
 - **🖥️ デュアルディスプレイモード:** ストリーミングプロトコルを選択
   - **Selkies GStreamer（デフォルト）:** WebRTCで低遅延、ゲームに適している
-  - **KasmVNC:** WebSocket経由のVNC、互換性が高い、GPUなしで動作
+  - **KasmVNC:** WebSocket経由のVNC、互換性が高い、GPUなしで動作、クリップボード対応
   - シンプルな`vnc`引数で切り替え
 
 - **🔐 SSL証明書管理:** 自動HTTPS設定
@@ -103,7 +109,7 @@ autoload -U compinit && compinit
 
 - **🛠️ 完全な管理スクリプト:** すべての操作用のシェルスクリプト
   - `build-user-image.sh` - パスワードプロンプト付きでビルド
-  - `start-container.sh <gpu> [vnc]` - GPU選択で起動
+  - `start-container.sh [--gpu <type>] [--vnc-type <type> | -v <type>]` - GPU選択とVNCタイプで起動
   - `stop/restart/logs/shell-container.sh` - ライフサイクル管理
   - `commit-container.sh` - 変更を保存
   - `generate-ssl-cert.sh` - SSL証明書ジェネレーター
@@ -176,9 +182,9 @@ IN_LOCALE=JP ./build-user-image.sh # Mozc入力付き日本語環境
 ./start-container.sh --gpu nvidia --all            # すべてのGPU（NVIDIA）、Selkiesモード
 ./start-container.sh --gpu intel             # Intel統合GPU、Selkiesモード
 ./start-container.sh --gpu amd            # AMD GPU、Selkiesモード
-./start-container.sh --gpu nvidia --all --vnc      # NVIDIA GPUでKasmVNCモード
-./start-container.sh --gpu intel -v          # Intel GPUでKasmVNCモード
-./start-container.sh --gpu nvidia --num 0 -v              # NVIDIA GPU 0でKasmVNC
+./start-container.sh --gpu nvidia --all --vnc-type kasm      # NVIDIA GPUでKasmVNCモード（クリップボード対応）
+./start-container.sh --gpu intel --vnc-type kasm          # Intel GPUでKasmVNCモード（クリップボード対応）
+./start-container.sh --gpu nvidia --num 0 --vnc-type kasm              # NVIDIA GPU 0でKasmVNC（クリップボード対応）
 # 注：--gpuを指定しない場合はソフトウェアレンダリングがデフォルト
 # 注：キーボードレイアウトはホストシステムから自動検出されます
 
@@ -389,7 +395,7 @@ docker build \
 `start-container.sh`スクリプトはGPUとディスプレイモードのオプション引数を使用します：
 
 ```bash
-# 構文: ./start-container.sh [--gpu <type>] [--vnc]
+# 構文: ./start-container.sh [--gpu <type>] [--vnc-type <type> | -v <type>]
 # デフォルト：オプション未指定の場合はSelkiesでソフトウェアレンダリング
 
 # NVIDIA GPUオプション：
@@ -407,14 +413,14 @@ docker build \
 
 # ディスプレイモードオプション：
 ./start-container.sh --gpu nvidia --all            # Selkies GStreamer（WebRTC、デフォルト）
-./start-container.sh --gpu intel --vnc       # Intel GPUでKasmVNC（WebSocket経由のVNC）
-./start-container.sh --gpu nvidia --all -v         # NVIDIA GPUでKasmVNC
-./start-container.sh -v                   # ソフトウェアレンダリングでKasmVNC
+./start-container.sh --gpu intel --vnc-type kasm       # Intel GPUでKasmVNC（WebSocket経由のVNC、クリップボード対応）
+./start-container.sh --gpu nvidia --all --vnc-type novnc         # NVIDIA GPUでnoVNC（クリップボード対応）
+./start-container.sh --vnc-type novnc                   # ソフトウェアレンダリングでnoVNC
 
 # キーボードレイアウトのオーバーライド（デフォルトは自動検出）：
 KEYBOARD_LAYOUT=jp ./start-container.sh --gpu intel        # 日本語キーボード
 KEYBOARD_LAYOUT=us ./start-container.sh --gpu intel    # USキーボード
-KEYBOARD_LAYOUT=de KEYBOARD_MODEL=pc105 ./start-container.sh --gpu all  # ドイツ語キーボード
+KEYBOARD_LAYOUT=de KEYBOARD_MODEL=pc105 ./start-container.sh --gpu nvidia --all  # ドイツ語キーボード
 ```
 
 **UIDベースのポート割り当て（マルチユーザーサポート）：**

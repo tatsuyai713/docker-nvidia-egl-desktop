@@ -46,6 +46,8 @@ services:
     # Uncomment to enable KasmVNC instead of Selkies, `SELKIES_BASIC_AUTH_PASSWORD` is used for authentication with KasmVNC, defaulting to `PASSWD` if not provided
     # Uses: `SELKIES_ENABLE_BASIC_AUTH`, `SELKIES_BASIC_AUTH_USER`, `SELKIES_BASIC_AUTH_PASSWORD`, `SELKIES_ENABLE_RESIZE`, `SELKIES_ENABLE_HTTPS`, `SELKIES_HTTPS_CERT`, `SELKIES_HTTPS_KEY`
 #    - KASMVNC_ENABLE=true
+    # VNC type: selkies (default), kasm, novnc
+    - VNC_TYPE=selkies
     # Number of threads for encoding frames with KasmVNC, default value is all threads
 #    - KASMVNC_THREADS=0
     ###
