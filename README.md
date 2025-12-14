@@ -2,9 +2,10 @@
 
 **[日本語版 (Japanese)](README_ja.md)**
 
-## Quick Start
+## Quick Start (Devcontainer)
 
-Get up and running in minutes:
+Get up and running on your local workstation in minutes.  
+This fork re-packages the original Selkies EGL Desktop (which targets Kubernetes clusters) into a friendly Devcontainer-style workflow for individual developers.
 
 ```bash
 # 1) (Optional) pull prebuilt base image
@@ -30,13 +31,14 @@ docker pull ghcr.io/tatsuyai713/devcontainer-ubuntu-egl-desktop-base:24.04
 ```
 
 
-KDE Plasma Desktop container designed for Kubernetes, supporting OpenGL EGL and GLX, Vulkan for NVIDIA GPUs through WebRTC and HTML5, providing an open-source remote cloud/HPC graphics or game streaming platform.
+Originally, Selkies EGL Desktop is a Kubernetes-centric remote desktop platform (multi-tenant, GPU scheduling, etc.).  
+This fork focuses on *local* use: a reproducible Devcontainer that runs the same KDE desktop through Selkies/KasmVNC, with tooling and documentation tailored for single-user development machines.
 
 ---
 
 ## 🚀 Key Improvements in This Fork
 
-This repository is an enhanced fork of the original Selkies EGL Desktop project, with significant improvements for security, usability, and multi-user environments:
+This repository is an enhanced fork oriented around Devcontainer usage. We kept the upstream streaming stack, but streamlined everything needed to spin up the desktop quickly on your own PC (matching host UID/GID, local password prompts, multi-language docs, etc.).
 
 ### Architecture Improvements
 
@@ -931,6 +933,19 @@ This is expected behavior. Display mode (Selkies/KasmVNC) cannot be changed for 
 - Display mode is set via environment variables at container creation (`docker run`)
 - Running containers use fixed environment variables
 - `docker start` on existing containers doesn't change environment variables
+
+## Known Limitations
+
+### Chrome hardware acceleration falls back to software
+
+- Inside the Selkies EGL session Chrome's GPU sandbox strips the VirtualGL `LD_PRELOAD` hooks, so the GPU process fails to find a valid GL implementation (`Requested GL implementation (gl=none,angle=none)`).  
+- When video playback starts Chrome automatically switches to software compositing/decoding. This is a Chromium limitation in virtualized GL pipelines and cannot be fixed with Chrome flags alone.  
+- Workarounds: run Firefox inside the container, keep Chrome outside the container (accessing Selkies/KasmVNC from the host), or switch to KasmVNC mode if you must use Chrome with GPU acceleration.
+
+### Safari loops on the Basic Auth dialog
+
+- Selkies enables HTTP Basic authentication by default. Safari does not resend credentials when upgrading to WebSocket/WebRTC endpoints (`/ws`, `/webrtc/signalling`), so each 401 response triggers the login dialog again and the page never loads.  
+- Workarounds: disable Basic auth (`SELKIES_ENABLE_BASIC_AUTH=false` before `start-container.sh`), use Chrome/Firefox/Edge, or place Selkies behind another reverse proxy that handles authentication.
 
 ### Rebuilding Images
 

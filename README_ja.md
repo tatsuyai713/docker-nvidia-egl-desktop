@@ -1,8 +1,9 @@
 # docker-selkies-egl-desktop
 
-## クイックスタート
+## Devcontainer 向けクイックスタート
 
-数分で開始できます：
+ローカル開発環境（Devcontainerスタイル）で数分以内に利用できます。  
+元の Selkies EGL Desktop は Kubernetes クラスター向けのマルチテナント配信を想定していますが、このフォークは開発者が手元で扱いやすいように再パッケージしたものです。
 
 ```bash
 # 1)（任意）事前ビルド済みベースイメージをプル
@@ -38,13 +39,14 @@ cp scripts/_start-container ~/.zfunc/_start-container
 autoload -U compinit && compinit
 ```
 
-NVIDIA GPU用のOpenGL EGL/GLX、VulkanをWebRTCとHTML5でサポートするKubernetes向けKDE Plasmaデスクトップコンテナ。オープンソースのリモートクラウド/HPCグラフィックスまたはゲームストリーミングプラットフォームを提供します。
+本来の Selkies EGL Desktop は Kubernetes を前提としたリモートデスクトップ基盤（GPUスケジューリングやマルチユーザー）です。  
+本フォークは *ローカル開発用途* に絞り、Devcontainer と同じ感覚で Selkies/KasmVNC デスクトップを立ち上げられるようにツール類やドキュメントを再構成しています。
 
 ---
 
 ## 🚀 このフォークの主な改善点
 
-このリポジトリは元のSelkies EGL Desktopプロジェクトの強化版フォークで、セキュリティ、使いやすさ、マルチユーザー環境に関して大幅な改善が施されています：
+このリポジトリは Devcontainer 利用を主目的に最適化したフォークです。上流のストリーミング基盤は維持しつつ、手元マシンで素早く KDE デスクトップを起動できるよう UID/GID 自動一致、対話的パスワード入力、多言語ドキュメントなどを揃えています：
 
 ### アーキテクチャの改善
 
@@ -938,6 +940,19 @@ setxkbmap -layout jp -model jp106 -query
 - ディスプレイモードはコンテナ作成時（`docker run`）に環境変数で設定される
 - 実行中のコンテナは固定の環境変数を使用
 - 既存のコンテナへの`docker start`は環境変数を変更しない
+
+## 既知の制限
+
+### Chrome のハードウェアアクセラレーションがソフトウェアにフォールバックする
+
+- Selkies EGL セッション内で Chrome を実行すると、サンドボックス化された GPU プロセスが VirtualGL の `LD_PRELOAD` を取り除くため、`Requested GL implementation (gl=none,angle=none)` といったエラーで GPU 初期化に失敗します。  
+- 動画を再生した瞬間に Chrome はソフトウェア描画/デコードへ切り替わります。これは仮想化された GL パイプラインでの Chromium の既知の制限で、単なるフラグ追加では解決できません。  
+- 回避策：コンテナ内では Firefox を使用する、Selkies/KasmVNC へはホスト側 Chrome でアクセスする、もしくは Chrome の GPU を使いたい場合は KasmVNC モードへ切り替える。
+
+### Safari で Basic 認証ダイアログが無限に繰り返される
+
+- Selkies ではデフォルトで HTTP Basic 認証が有効です。Safari は WebSocket/WebRTC へのアップグレード時に `Authorization` ヘッダーを再送しないため、`/webrtc/signalling` などで 401 が返されるたびに macOS のログインダイアログが再表示されて先へ進めません。  
+- 回避策：`SELKIES_ENABLE_BASIC_AUTH=false` を指定して Basic 認証を無効化する、Chrome/Firefox など別ブラウザを使用する、あるいは Selkies の前段に別のプロキシを置いて認証処理を代替させる。
 
 ### イメージの再ビルド
 
