@@ -748,7 +748,10 @@ KEYBOARD_LAYOUT=fr KEYBOARD_MODEL=pc105 KEYBOARD_VARIANT=azerty ./start-containe
 # 1. Generate SSL certificate (interactive)
 ./generate-ssl-cert.sh
 
-# 2. Start container (auto-detects ssl/ folder)
+# 2. Install the generated CA into your local trust stores (requires sudo)
+sudo ./install-ca-cert.sh
+
+# 3. Start container (auto-detects ssl/ folder)
 ./start-container.sh --gpu nvidia --all
 ```
 
@@ -759,6 +762,16 @@ The script will:
 - Provide usage examples
 
 Access via: <https://localhost:8080> (your browser will show a security warning)
+
+### Trusting the Generated CA
+
+- `generate-ssl-cert.sh` now issues a *private Certificate Authority (CA)* (`ssl/ca.crt`) and a server certificate signed by that CA.
+- Run `sudo ./install-ca-cert.sh` on **every host that opens the web UI** to install the CA into:
+  - `/usr/local/share/ca-certificates` (for system-wide trust)
+  - The current user’s Chrome/Chromium NSS store (via `certutil` if available)
+- If `certutil` is missing, install `libnss3-tools` or manually import `ssl/ca.crt` into Chrome/Firefox/Safari/Edge.
+- Chrome may cache earlier invalid certs. If warnings persist, clear `localhost` from `chrome://net-internals/#hsts`, then restart the browser.
+- For remote clients, copy `ssl/ca.crt` to the other machine and run `sudo ./install-ca-cert.sh` (or import it into that OS/browser manually).
 
 ### Certificate Priority
 

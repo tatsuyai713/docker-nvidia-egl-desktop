@@ -702,7 +702,8 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         libxrandr-dev \
         libxss-dev \
         libxtst-dev \
-        libavahi-client-dev && \
+        libavahi-client-dev \
+        xclip && \
     rm -rf /var/lib/apt/lists/* && \
     # Build the latest x11vnc source to avoid various errors
     git clone "https://github.com/LibVNC/x11vnc.git" /tmp/x11vnc && \

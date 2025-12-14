@@ -31,12 +31,18 @@ yq -i "
 .desktop.resolution.height = ${DISPLAY_SIZEH} |
 .desktop.allow_resize = $(echo ${SELKIES_ENABLE_RESIZE:-true} | tr '[:upper:]' '[:lower:]') |
 .desktop.pixel_depth = ${DISPLAY_CDEPTH} |
-.encoding.rect_encoding_mode.rectangle_compress_threads = ${KASMVNC_THREADS-0} |
+.encoding.rect_encoding_mode.rectangle_compress_threads = ${KASMVNC_THREADS:-0} |
 .encoding.max_frame_rate = ${DISPLAY_REFRESH} |
 .network.interface = \"127.0.0.1\" |
-.network.websocket_port = ${SELKIES_PORT-8081} |
-.network.ssl.require_ssl = $(echo ${SELKIES_ENABLE_HTTPS-false} | tr '[:upper:]' '[:lower:]') |
-.network.udp.public_ip = \"${TURN_EXTERNAL_IP-$(dig -4 TXT +short @ns1.google.com o-o.myaddr.l.google.com 2>/dev/null | { read output; if [ -z "$output" ] || echo "$output" | grep -q '^;;'; then exit 1; else echo "$(echo $output | sed 's,\",,g')"; fi } || dig -6 TXT +short @ns1.google.com o-o.myaddr.l.google.com 2>/dev/null | { read output; if [ -z "$output" ] || echo "$output" | grep -q '^;;'; then exit 1; else echo "[$(echo $output | sed 's,\",,g')]"; fi } || hostname -I 2>/dev/null | awk '{print $1; exit}' || echo '127.0.0.1')}\"
+.network.websocket_port = ${SELKIES_PORT:-8081} |
+.network.ssl.require_ssl = $(echo ${SELKIES_ENABLE_HTTPS:-false} | tr '[:upper:]' '[:lower:]') |
+.runtime_configuration.allow_client_to_override_kasm_server_settings = false |
+.data_loss_prevention.clipboard.client_to_server.enabled = true |
+.data_loss_prevention.clipboard.server_to_client.enabled = true |
+.data_loss_prevention.clipboard.server_to_client.primary_clipboard_enabled = true |
+.data_loss_prevention.clipboard.client_to_server.size = \"unlimited\" |
+.data_loss_prevention.clipboard.server_to_client.size = \"unlimited\" |
+.network.udp.public_ip = \"${TURN_EXTERNAL_IP}\"
 " ~/.vnc/kasmvnc.yaml
 
 if [ -n "${SELKIES_HTTPS_CERT}" ]; then yq -i ".network.ssl.pem_certificate = \"${SELKIES_HTTPS_CERT-/etc/ssl/certs/ssl-cert-snakeoil.pem}\"" ~/.vnc/kasmvnc.yaml; fi
@@ -110,5 +116,35 @@ if [ -n "${KEYBOARD_LAYOUT}" ]; then
         setxkbmap -display "${KASMVNC_DISPLAY}" -layout "${KEYBOARD_LAYOUT}" -model "${KEYBOARD_MODEL:-pc105}" 2>/dev/null || echo "Warning: setxkbmap failed"
     fi
 fi
+
+ensure_xclip() {
+  command -v xclip >/dev/null 2>&1 && return 0
+  sudo -n true 2>/dev/null && sudo apt-get update && sudo apt-get install -y xclip && return 0
+  apt-get update && apt-get install -y xclip
+}
+
+clip_mirror() {
+  local SRC="$1" DST="$2" SEL="$3"
+  local prev=""
+  while true; do
+    local cur
+    cur="$(DISPLAY="$SRC" xclip -o -selection "$SEL" 2>/dev/null || true)"
+    if [ -n "$cur" ] && [ "$cur" != "$prev" ]; then
+      DISPLAY="$DST" printf '%s' "$cur" | xclip -i -selection "$SEL" 2>/dev/null || true
+      prev="$cur"
+    fi
+    sleep 0.2
+  done
+}
+
+ensure_xclip
+
+# 双方向（CLIPBOARD）
+clip_mirror "$KASMVNC_DISPLAY" "$DISPLAY" clipboard &  # ブラウザ→アプリ側
+clip_mirror "$DISPLAY" "$KASMVNC_DISPLAY" clipboard &  # アプリ側→ブラウザ
+
+# 必要なら PRIMARY も（Linuxの「選択しただけコピー」も同期したい場合）
+clip_mirror "$DISPLAY" "$KASMVNC_DISPLAY" primary &
+clip_mirror "$KASMVNC_DISPLAY" "$DISPLAY" primary &
 
 kasmxproxy -a "${DISPLAY}" -v "${KASMVNC_DISPLAY}" -f "${DISPLAY_REFRESH}" ${KASMVNC_PROXY_FLAG}

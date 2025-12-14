@@ -757,7 +757,10 @@ KEYBOARD_LAYOUT=fr KEYBOARD_MODEL=pc105 KEYBOARD_VARIANT=azerty ./start-containe
 # 1. SSL証明書を生成（インタラクティブ）
 ./generate-ssl-cert.sh
 
-# 2. コンテナを起動（ssl/フォルダを自動検出）
+# 2. 生成したCAをローカルの信頼ストアへ登録（sudoが必要）
+sudo ./install-ca-cert.sh
+
+# 3. コンテナを起動（ssl/フォルダを自動検出）
 ./start-container.sh all
 ```
 
@@ -768,6 +771,16 @@ KEYBOARD_LAYOUT=fr KEYBOARD_MODEL=pc105 KEYBOARD_VARIANT=azerty ./start-containe
 - 使用例を提供
 
 アクセス：<https://localhost:8080>（ブラウザにセキュリティ警告が表示されます）
+
+### 生成されたCAの信頼設定
+
+- `generate-ssl-cert.sh` はプライベートCA (`ssl/ca.crt`) とサーバー証明書を生成します。
+- Web UI を開く **すべてのマシン** で `sudo ./install-ca-cert.sh` を実行し、以下にインポートしてください：
+  - `/usr/local/share/ca-certificates`（システム全体の信頼）
+  - Chrome/Chromium の NSS ストア（`certutil` が利用可能な場合に自動登録）
+- `certutil` が無い場合は `libnss3-tools` をインストールするか、ブラウザ設定から `ssl/ca.crt` を手動でインポートしてください。
+- Chrome が古い証明書をキャッシュしている場合は `chrome://net-internals/#hsts` で `localhost` のエントリを削除し、ブラウザを再起動してください。
+- リモートクライアントで利用する場合は `ssl/ca.crt` をコピーし、そのマシンでも `sudo ./install-ca-cert.sh`（または手動インポート）を実施してください。
 
 ### 証明書の優先順位
 
