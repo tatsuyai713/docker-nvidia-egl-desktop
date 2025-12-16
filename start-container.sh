@@ -9,6 +9,7 @@ GPU_ALL="false"     # when vendor is nvidia, whether to use all GPUs
 GPU_NUMS=""         # when vendor is nvidia, specific device numbers (comma-separated)
 VNC_TYPE="selkies"  # one of: selkies, kasm, novnc
 ENABLE_TURN="true"
+USE_XORG="false"    # whether to use Xorg instead of Xvfb
 
 # Show usage
 show_usage() {
@@ -26,6 +27,7 @@ show_usage() {
     echo "                      selkies   - Selkies GStreamer (WebRTC)"
     echo "                      kasm      - KasmVNC"
     echo "                      novnc     - noVNC (with clipboard support)"
+    echo "  --xorg               Use Xorg instead of Xvfb"
     echo "  -h, --help          Show this help message"
     echo ""
     echo "Note: TURN server is enabled by default for remote Selkies access."
@@ -39,6 +41,7 @@ show_usage() {
     echo "  $0 --gpu nvidia --num 0 --vnc-type kasm      # Use NVIDIA GPU 0 with KasmVNC"
     echo "  $0 --gpu intel --vnc-type novnc               # Use Intel GPU with noVNC"
     echo "  $0 --gpu nvidia --num 0,1 --vnc-type novnc    # Use NVIDIA GPUs 0 and 1 with noVNC"
+    echo "  $0 --gpu intel --xorg                        # Use Intel GPU with Xorg"
     echo ""
 }
 
@@ -103,6 +106,10 @@ while [[ $# -gt 0 ]]; do
         --vnc)
             # Legacy support for --vnc (maps to kasm)
             VNC_TYPE="kasm"
+            shift
+            ;;
+        --xorg)
+            USE_XORG="true"
             shift
             ;;
         -h|--help)
@@ -399,6 +406,7 @@ fi
 CMD="${CMD} -e DISPLAY_SIZEW=${DISPLAY_WIDTH}"
 CMD="${CMD} -e DISPLAY_SIZEH=${DISPLAY_HEIGHT}"
 CMD="${CMD} -e DISPLAY_REFRESH=${DISPLAY_REFRESH}"
+CMD="${CMD} -e USE_XORG=${USE_XORG}"
 
 # Keyboard layout
 CMD="${CMD} -e KEYBOARD_LAYOUT=${KEYBOARD_LAYOUT}"

@@ -31,6 +31,9 @@ docker pull ghcr.io/tatsuyai713/devcontainer-ubuntu-egl-desktop-base:24.04
 
 # 7) Start container with noVNC using short option (Intel)
 ./start-container.sh --gpu intel -v novnc
+
+# 8) Start container with Xorg (Intel, for Vulkan support)
+./start-container.sh --gpu intel --xorg
 ```
 
 
@@ -87,7 +90,12 @@ This repository is an enhanced fork oriented around Devcontainer usage. We kept 
 
 - **🖥️ Dynamic Resolution Adjustment:** In Selkies and KasmVNC modes, resolution automatically adjusts to match the client browser size.
 
-- **�🔐 SSL Certificate Management:** Automated HTTPS setup
+- **🖥️ X Server Options:** Choose X server type
+  - **Xvfb (default):** Virtual X server with VirtualGL hardware acceleration, high compatibility
+  - **Xorg:** Real X server with direct hardware acceleration (use `--xorg` option)
+  - Both support hardware acceleration via VirtualGL or direct GPU access
+
+- **🔐 SSL Certificate Management:** Automated HTTPS setup
   - Interactive certificate generation script
   - Auto-detection from `ssl/` folder
   - Priority system: ssl/ folder → environment variables → HTTP fallback

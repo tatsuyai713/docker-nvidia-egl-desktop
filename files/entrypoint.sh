@@ -103,7 +103,7 @@ fi
 # Run X server with RANDR support for dynamic resolution changes
 # Xvfb does not support dynamic resolution changes, so we use Xorg with dummy driver
 # This allows selkies-gstreamer to resize the display based on browser window size
-if command -v Xorg >/dev/null 2>&1; then
+if [ "${USE_XORG}" = "true" ] && command -v Xorg >/dev/null 2>&1; then
     echo "Starting Xorg with dummy driver for dynamic resolution support..."
     # Create xorg.conf for dummy driver
     mkdir -p /tmp/xorg
@@ -136,9 +136,11 @@ Section "Screen"
 EndSection
 XORGEOF
     /usr/bin/Xorg "${DISPLAY}" -config /tmp/xorg/xorg.conf -nolisten "tcp" -noreset +extension "GLX" +extension "RANDR" +extension "RENDER" &
-else
-    echo "Warning: Xorg not found, falling back to Xvfb (dynamic resolution not supported)"
+elif command -v Xvfb >/dev/null 2>&1; then
+    echo "Starting Xvfb for software rendering..."
     /usr/bin/Xvfb "${DISPLAY}" -screen 0 "1920x1080x${DISPLAY_CDEPTH}" +extension "COMPOSITE" +extension "DAMAGE" +extension "GLX" +extension "RANDR" +extension "RENDER" +extension "MIT-SHM" +extension "XFIXES" +extension "XTEST" +iglx +render -nolisten "tcp" -ac -noreset -shmem &
+else
+    echo "Warning: Neither Xvfb nor Xorg found, cannot start X server"
 fi
 
 # Wait for X server to start

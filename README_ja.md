@@ -30,7 +30,10 @@ docker pull ghcr.io/tatsuyai713/devcontainer-ubuntu-egl-desktop-base:24.04
 # 7) noVNCを短縮オプションで起動（Intel）
 ./start-container.sh --gpu intel -v novnc
 
-# 8) ブラウザで開く（例：UID 1000 の場合）
+# 8) Xorgで起動（Intel、Vulkan対応）
+./start-container.sh --gpu intel --xorg
+
+# 9) ブラウザで開く（例：UID 1000 の場合）
 # http://localhost:11000  （HTTPS有効時は https://localhost:11000）
 ```
 
@@ -87,7 +90,12 @@ docker pull ghcr.io/tatsuyai713/devcontainer-ubuntu-egl-desktop-base:24.04
 
 - **🖥️ 動的解像度調整:** SelkiesおよびKasmVNCモードで、クライアントのブラウザサイズに合わせて解像度が自動的に調整されます。
 
-- **�🔐 SSL証明書管理:** 自動HTTPS設定
+- **🖥️ Xサーバーオプション:** Xサーバーの種類を選択
+  - **Xvfb（デフォルト）:** VirtualGLハードウェアアクセラレーション付き仮想Xサーバー、高い互換性
+  - **Xorg:** 直接ハードウェアアクセラレーション付き実Xサーバー（`--xorg`オプション使用）
+  - 両方ともVirtualGLまたは直接GPUアクセスでハードウェアアクセラレーション対応
+
+- **🔐 SSL証明書管理:** 自動HTTPS設定
   - インタラクティブな証明書生成スクリプト
   - `ssl/`フォルダからの自動検出
   - 優先順位システム：ssl/フォルダ → 環境変数 → HTTPフォールバック
