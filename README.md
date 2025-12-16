@@ -85,7 +85,9 @@ This repository is an enhanced fork oriented around Devcontainer usage. We kept 
   - **noVNC:** Basic VNC with host audio passthrough (audio output only via host PulseAudio), clipboard support
   - Switch with `--vnc-type` or `-v` argument
 
-- **🔐 SSL Certificate Management:** Automated HTTPS setup
+- **🖥️ Dynamic Resolution Adjustment:** In Selkies and KasmVNC modes, resolution automatically adjusts to match the client browser size.
+
+- **�🔐 SSL Certificate Management:** Automated HTTPS setup
   - Interactive certificate generation script
   - Auto-detection from `ssl/` folder
   - Priority system: ssl/ folder → environment variables → HTTP fallback

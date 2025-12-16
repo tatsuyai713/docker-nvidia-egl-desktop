@@ -85,7 +85,9 @@ docker pull ghcr.io/tatsuyai713/devcontainer-ubuntu-egl-desktop-base:24.04
   - **noVNC:** ホスト音声パススルー付き基本VNC（ホストPulseAudio経由の音声出力のみ）、クリップボード対応
   - `--vnc-type`または`-v`引数で切り替え
 
-- **🔐 SSL証明書管理:** 自動HTTPS設定
+- **🖥️ 動的解像度調整:** SelkiesおよびKasmVNCモードで、クライアントのブラウザサイズに合わせて解像度が自動的に調整されます。
+
+- **�🔐 SSL証明書管理:** 自動HTTPS設定
   - インタラクティブな証明書生成スクリプト
   - `ssl/`フォルダからの自動検出
   - 優先順位システム：ssl/フォルダ → 環境変数 → HTTPフォールバック
