@@ -36,7 +36,7 @@ export GSTREAMER_PATH=/opt/gstreamer
 . /opt/gstreamer/gst-env
 
 export SELKIES_ENCODER="${SELKIES_ENCODER:-x264enc}"
-export SELKIES_ENABLE_RESIZE="${SELKIES_ENABLE_RESIZE:-false}"
+export SELKIES_ENABLE_RESIZE="${SELKIES_ENABLE_RESIZE:-true}"
 if [ -z "${SELKIES_TURN_REST_URI}" ] && { { [ -z "${SELKIES_TURN_USERNAME}" ] || [ -z "${SELKIES_TURN_PASSWORD}" ]; } && [ -z "${SELKIES_TURN_SHARED_SECRET}" ] || [ -z "${SELKIES_TURN_HOST}" ] || [ -z "${SELKIES_TURN_PORT}" ]; }; then
   export TURN_RANDOM_PASSWORD="$(tr -dc 'A-Za-z0-9' < /dev/urandom 2>/dev/null | head -c 24)"
   export SELKIES_TURN_HOST="${SELKIES_TURN_HOST:-$(dig -4 TXT +short @ns1.google.com o-o.myaddr.l.google.com 2>/dev/null | { read output; if [ -z "$output" ] || echo "$output" | grep -q '^;;'; then exit 1; else echo "$(echo $output | sed 's,\",,g')"; fi } || dig -6 TXT +short @ns1.google.com o-o.myaddr.l.google.com 2>/dev/null | { read output; if [ -z "$output" ] || echo "$output" | grep -q '^;;'; then exit 1; else echo "[$(echo $output | sed 's,\",,g')]"; fi } || hostname -I 2>/dev/null | awk '{print $1; exit}' || echo '127.0.0.1')}"
@@ -261,6 +261,7 @@ selkies-gstreamer \
     --addr="localhost" \
     --port="${SELKIES_PORT:-8081}" \
     --enable_basic_auth="false" \
+    --enable_resize="${SELKIES_ENABLE_RESIZE:-true}" \
     --enable_metrics_http="true" \
     --metrics_http_port="${SELKIES_METRICS_HTTP_PORT:-9081}" \
     --enable_clipboard="true" \

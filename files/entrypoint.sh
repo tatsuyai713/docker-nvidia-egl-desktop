@@ -100,10 +100,46 @@ elif [ "$(echo ${ENABLE_NVIDIA} | tr '[:upper:]' '[:lower:]')" != "true" ]; then
   echo 'NVIDIA support is disabled (ENABLE_NVIDIA=false). Using software rendering or other GPU vendors.'
 fi
 
-# Run Xvfb server with required extensions
-# Start with Full HD resolution (1920x1080)
-# The actual display size can be adjusted by selkies-gstreamer-resize
-/usr/bin/Xvfb "${DISPLAY}" -screen 0 "1920x1080x${DISPLAY_CDEPTH}" -dpi "${DISPLAY_DPI}" +extension "COMPOSITE" +extension "DAMAGE" +extension "GLX" +extension "RANDR" +extension "RENDER" +extension "MIT-SHM" +extension "XFIXES" +extension "XTEST" +iglx +render -nolisten "tcp" -ac -noreset -shmem &
+# Run X server with RANDR support for dynamic resolution changes
+# Xvfb does not support dynamic resolution changes, so we use Xorg with dummy driver
+# This allows selkies-gstreamer to resize the display based on browser window size
+if command -v Xorg >/dev/null 2>&1; then
+    echo "Starting Xorg with dummy driver for dynamic resolution support..."
+    # Create xorg.conf for dummy driver
+    mkdir -p /tmp/xorg
+    cat > /tmp/xorg/xorg.conf << 'XORGEOF'
+Section "Device"
+    Identifier  "Configured Video Device"
+    Driver      "dummy"
+    VideoRam    256000
+EndSection
+
+Section "Monitor"
+    Identifier  "Configured Monitor"
+    HorizSync   5.0 - 1000.0
+    VertRefresh 5.0 - 200.0
+    # Add common resolutions
+    Modeline "1920x1080" 148.50 1920 2008 2052 2200 1080 1084 1089 1125 +hsync +vsync
+    Modeline "1280x720" 74.25 1280 1390 1430 1650 720 725 730 750 +hsync +vsync
+    Modeline "1024x768" 65.00 1024 1048 1184 1344 768 771 777 806 -hsync -vsync
+EndSection
+
+Section "Screen"
+    Identifier  "Default Screen"
+    Monitor     "Configured Monitor"
+    Device      "Configured Video Device"
+    DefaultDepth 24
+    SubSection "Display"
+        Depth    24
+        Virtual  8192 4096
+    EndSubSection
+EndSection
+XORGEOF
+    /usr/bin/Xorg "${DISPLAY}" -config /tmp/xorg/xorg.conf -nolisten "tcp" -noreset +extension "GLX" +extension "RANDR" +extension "RENDER" &
+else
+    echo "Warning: Xorg not found, falling back to Xvfb (dynamic resolution not supported)"
+    /usr/bin/Xvfb "${DISPLAY}" -screen 0 "1920x1080x${DISPLAY_CDEPTH}" +extension "COMPOSITE" +extension "DAMAGE" +extension "GLX" +extension "RANDR" +extension "RENDER" +extension "MIT-SHM" +extension "XFIXES" +extension "XTEST" +iglx +render -nolisten "tcp" -ac -noreset -shmem &
+fi
 
 # Wait for X server to start
 echo 'Waiting for X Socket' && until [ -S "/tmp/.X11-unix/X${DISPLAY#*:}" ]; do sleep 0.5; done && echo 'X Server is ready'

@@ -70,5 +70,7 @@ else
   NOVNC_CERT=""
 fi
 
-x11vnc -display "${DISPLAY}" -listen 0.0.0.0 -nopw -shared -forever -repeat -xkb -snapfb -threads -xrandr "resize" -rfbport 5900 ${NOVNC_VIEWONLY} &
+x11vnc -display "${DISPLAY}" -listen 0.0.0.0 -nopw -shared -forever -repeat -xkb -snapfb -threads -rfbport 5900 ${NOVNC_VIEWONLY} &
+# Note: Removed -xrandr "resize" option as standard noVNC client does not send SetDesktopSize messages
+# noVNC performs client-side scaling instead of server-side resolution changes
 /opt/noVNC/utils/novnc_proxy --vnc localhost:5900 --listen ${NGINX_PORT:-8080} --heartbeat 10 ${NOVNC_SSL} ${NOVNC_CERT}

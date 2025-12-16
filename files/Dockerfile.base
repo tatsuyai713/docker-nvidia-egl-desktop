@@ -154,6 +154,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         xserver-xorg-video-all \
         xserver-xorg-video-intel \
         xserver-xorg-video-qxl \
+        xserver-xorg-video-dummy \
         # NVIDIA driver installer dependencies
         libc6-dev \
         libpci3 \
@@ -302,7 +303,7 @@ ENV VGL_DISPLAY=egl
 ENV KASMVNC_ENABLE=false
 ENV ENABLE_NVIDIA=true
 ENV SELKIES_ENCODER=nvh264enc
-ENV SELKIES_ENABLE_RESIZE=false
+ENV SELKIES_ENABLE_RESIZE=true
 ENV SELKIES_ENABLE_BASIC_AUTH=true
 
 # Install Xvfb
@@ -678,6 +679,8 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     cd /opt && curl -fsSL "https://github.com/selkies-project/selkies/releases/download/v${SELKIES_VERSION}/gstreamer-selkies_gpl_v${SELKIES_VERSION}_ubuntu$(grep '^VERSION_ID=' /etc/os-release | cut -d= -f2 | tr -d '\"')_$(dpkg --print-architecture).tar.gz" | tar -xzf - && \
     cd /tmp && curl -O -fsSL "https://github.com/selkies-project/selkies/releases/download/v${SELKIES_VERSION}/selkies_gstreamer-${SELKIES_VERSION}-py3-none-any.whl" && pip3 install --no-cache-dir --force-reinstall "selkies_gstreamer-${SELKIES_VERSION}-py3-none-any.whl" "websockets<14.0" && rm -f "selkies_gstreamer-${SELKIES_VERSION}-py3-none-any.whl" && \
     cd /opt && curl -fsSL "https://github.com/selkies-project/selkies/releases/download/v${SELKIES_VERSION}/selkies-gstreamer-web_v${SELKIES_VERSION}.tar.gz" | tar -xzf - && \
+    # Patch Selkies web client to disable HiDPI/Retina scaling (force devicePixelRatio to 1.0)
+    sed -i 's/window\.devicePixelRatio/1.0/g' /opt/gst-web/app.js /opt/gst-web/input.js /opt/gst-web/signalling.js && \
     cd /tmp && curl -o selkies-js-interposer.deb -fsSL "https://github.com/selkies-project/selkies/releases/download/v${SELKIES_VERSION}/selkies-js-interposer_v${SELKIES_VERSION}_ubuntu$(grep '^VERSION_ID=' /etc/os-release | cut -d= -f2 | tr -d '\"')_$(dpkg --print-architecture).deb" && apt-get update && apt-get install --no-install-recommends -y ./selkies-js-interposer.deb && rm -f selkies-js-interposer.deb && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /var/log/* /tmp/* /var/tmp/*
 

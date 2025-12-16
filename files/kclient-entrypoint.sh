@@ -86,10 +86,13 @@ if grep -q "device: 'auto_null.monitor'" /kclient/index.js; then
     echo "Updated audio device to VirtualSpeaker-${USER_UID}.monitor"
 fi
 
-# Fix 3: Change resize mode from remote to scale for better compatibility
-if grep -q 'resize=remote' /kclient/public/index.html; then
-    sed -i 's/resize=remote/resize=scale/g' /kclient/public/index.html
-    echo "Changed resize mode to scale"
+# Fix 3: Keep resize mode as remote for automatic desktop resolution adjustment
+# resize=remote: Server desktop resolution changes based on browser window size
+# resize=scale: Client-side scaling only (server resolution stays fixed)
+# resize=off: No resizing
+if ! grep -q 'resize=remote' /kclient/public/index.html; then
+    sed -i 's/resize=[a-z]*/resize=remote/g' /kclient/public/index.html
+    echo "Set resize mode to remote for automatic resolution adjustment"
 fi
 
 # Fix 4: Update microphone socket path to use environment variable
