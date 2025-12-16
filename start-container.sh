@@ -341,20 +341,34 @@ CMD="${CMD} --hostname $(hostname)-Container"
 # GPU support based on parsed options (GPU_VENDOR, GPU_ALL, GPU_NUMS)
 if [ "${GPU_VENDOR}" = "none" ]; then
     # No GPU - software rendering
-    CMD="${CMD} --device=/dev/dri:rwm"
+    if [ -d "/dev/dri" ] && [ -n "$(ls -A /dev/dri 2>/dev/null)" ]; then
+        CMD="${CMD} --device=/dev/dri:rwm"
+    else
+        echo "Warning: /dev/dri not found, skipping GPU device mount (WSL environment detected)"
+    fi
     CMD="${CMD} -e ENABLE_NVIDIA=false"
     VIDEO_ENCODER="x264enc"
 elif [ "${GPU_VENDOR}" = "intel" ]; then
     # Intel GPU with VA-API hardware acceleration
-    CMD="${CMD} --device=/dev/dri:rwm"
+    if [ -d "/dev/dri" ] && [ -n "$(ls -A /dev/dri 2>/dev/null)" ]; then
+        CMD="${CMD} --device=/dev/dri:rwm"
+    else
+        echo "Warning: /dev/dri not found, Intel GPU not available (WSL environment detected)"
+    fi
     CMD="${CMD} -e ENABLE_NVIDIA=false"
     CMD="${CMD} -e LIBVA_DRIVER_NAME=iHD"
     VIDEO_ENCODER="vah264enc"
     echo "Using Intel GPU with VA-API hardware acceleration (Quick Sync Video)"
 elif [ "${GPU_VENDOR}" = "amd" ]; then
     # AMD GPU - use for rendering but software encoding if VA-API not working
-    CMD="${CMD} --device=/dev/dri:rwm"
-    CMD="${CMD} --device=/dev/kfd:rwm"
+    if [ -d "/dev/dri" ] && [ -n "$(ls -A /dev/dri 2>/dev/null)" ]; then
+        CMD="${CMD} --device=/dev/dri:rwm"
+    else
+        echo "Warning: /dev/dri not found, AMD GPU not available (WSL environment detected)"
+    fi
+    if [ -d "/dev/kfd" ]; then
+        CMD="${CMD} --device=/dev/kfd:rwm"
+    fi
     CMD="${CMD} -e ENABLE_NVIDIA=false"
     VIDEO_ENCODER="x264enc"
     echo "Using AMD GPU for rendering with software encoding (x264)"
@@ -362,11 +376,15 @@ elif [ "${GPU_VENDOR}" = "nvidia" ]; then
     # NVIDIA: require explicit --all or --num
     if [ "${GPU_ALL}" = "true" ]; then
         CMD="${CMD} --gpus all"
-        CMD="${CMD} --device=/dev/dri:rwm"
+        if [ -d "/dev/dri" ] && [ -n "$(ls -A /dev/dri 2>/dev/null)" ]; then
+            CMD="${CMD} --device=/dev/dri:rwm"
+        fi
     elif [ -n "${GPU_NUMS}" ]; then
         # Pass device list to docker --gpus option
         CMD="${CMD} --gpus '\"device=${GPU_NUMS}\"'"
-        CMD="${CMD} --device=/dev/dri:rwm"
+        if [ -d "/dev/dri" ] && [ -n "$(ls -A /dev/dri 2>/dev/null)" ]; then
+            CMD="${CMD} --device=/dev/dri:rwm"
+        fi
     else
         echo "Error: --gpu nvidia requires either --all or --num. Example: --gpu nvidia --all or --gpu nvidia --num 0,1"
         exit 1
