@@ -130,7 +130,14 @@ EOF
 fi
 
 # Configure NGINX
-if [ "$(echo ${SELKIES_ENABLE_BASIC_AUTH} | tr '[:upper:]' '[:lower:]')" != "false" ]; then htpasswd -bcm "${XDG_RUNTIME_DIR}/.htpasswd" "${SELKIES_BASIC_AUTH_USER:-${USER}}" "${SELKIES_BASIC_AUTH_PASSWORD:-${PASSWD}}"; fi
+if [ "$(echo ${SELKIES_ENABLE_BASIC_AUTH} | tr '[:upper:]' '[:lower:]')" != "false" ]; then
+    # Use pre-generated htpasswd file from image build
+    if [ -f /etc/.htpasswd ]; then
+        cp /etc/.htpasswd "${XDG_RUNTIME_DIR}/.htpasswd"
+    else
+        echo "Warning: /etc/.htpasswd not found, NGINX Basic Auth will not work"
+    fi
+fi
 
 # Write NGINX config to user-writable location first
 mkdir -p "${XDG_RUNTIME_DIR}/nginx" 2>/dev/null
