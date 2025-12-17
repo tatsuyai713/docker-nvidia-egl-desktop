@@ -681,6 +681,57 @@ VIDEO_BITRATE=4000        # Lower bitrate for CPU
 - `vp9enc` - Software VP9
 - `vah264enc` - AMD/Intel hardware encoding
 
+**Intel mode:** `--gpu intel` now enables VA-API hardware encoding (`vah264enc`) by default.  
+Set `INTEL_FORCE_VAAPI=false` before `./start-container.sh --gpu intel` if you need to fall back to software (`x264enc`).
+
+**AMD mode:** `--gpu amd` also uses VA-API hardware encoding by default (`LIBVA_DRIVER_NAME=radeonsi`, `vah264enc`).  
+Set `AMD_FORCE_VAAPI=false` (or override `AMD_LIBVA_DRIVER`) before `./start-container.sh --gpu amd` to force software encoding.
+
+### Checking Hardware Encoder Usage
+
+All GPU modes:
+
+```bash
+# Confirm what Selkies is using
+docker exec devcontainer-egl-desktop-$(whoami) env | grep -E 'SELKIES_ENCODER|LIBVA_DRIVER_NAME'
+./logs-container.sh | grep -i encoder
+```
+
+**Intel (VA-API / Quick Sync)**
+
+```bash
+sudo apt update
+sudo apt install intel-gpu-tools
+sudo intel_gpu_top
+```
+
+- Run the container (`./start-container.sh --gpu intel`) and play a video or move windows.
+- In `intel_gpu_top`, the `Video/0` or `VideoEnhance/0` columns should spike while encoding.
+- Inside the container you can also run `vainfo | grep -i VAEntrypointEnc` to ensure the iHD driver exposes H.264 encode paths.
+
+**AMD (VA-API / radeonsi)**
+
+```bash
+sudo apt update
+sudo apt install radeontop
+sudo radeontop
+```
+
+- After `./start-container.sh --gpu amd`, watch the `vce`/`vcn` usage in `radeontop` while streaming to confirm hardware encode activity.
+- From inside the container you can double-check VA-API availability with `vainfo | grep -i VAEntrypointEnc`.
+
+**NVIDIA (NVENC)**
+
+```bash
+# nvidia-smi is usually installed with the driver; if missing, install the matching utils package
+sudo apt update
+sudo apt install nvidia-utils-535   # replace 535 with your driver version
+watch -n1 nvidia-smi dmon -s pucvmt
+```
+
+- Start Selkies in NVIDIA mode (`./start-container.sh --gpu nvidia --all`).
+- `nvidia-smi dmon` (or plain `nvidia-smi`) should show non-zero encoder (ENC) utilization whenever Selkies is streaming.
+
 ### Audio Settings
 
 **Audio Support by Display Mode:**
@@ -1018,7 +1069,9 @@ This is expected behavior. Display mode (Selkies/KasmVNC) cannot be changed for 
 
 - Selkies runs the KDE desktop under Xvfb + VirtualGL; there is no real Xorg/DRI3 backend inside the container. Vulkan applications therefore cannot find a graphics+present queue combination and exit with `No DRI3 support detected`.  
 - Vulkan's presentation requires DRI3/DRM and a real display server, which is outside the scope of the Selkies EGL pipeline.  
-- Workarounds: run Vulkan workloads directly on the host or in a container attached to an actual Xorg session (e.g., KasmVNC/GLX mode), but not inside the WebRTC Selkies session.
+- **NVIDIA GPUs**: Vulkan works when using NVIDIA container toolkit (nvidia-docker), as the drivers provide proper Vulkan ICD and presentation support.  
+- **Intel/AMD GPUs**: Vulkan presentation fails in containers regardless of using Xvfb or Xorg, due to integrated graphics sharing host Xorg and limited DRM access.  
+- Workarounds: run Vulkan workloads directly on the host, use NVIDIA GPUs with proper drivers, or avoid Vulkan in containerized environments.
 
 ### Rebuilding Images
 

@@ -359,19 +359,35 @@ elif [ "${GPU_VENDOR}" = "intel" ]; then
     # Intel GPU with VA-API hardware acceleration
     if [ -d "/dev/dri" ] && [ -n "$(ls -A /dev/dri 2>/dev/null)" ]; then
         CMD="${CMD} --device=/dev/dri:rwm"
+        CMD="${CMD} --privileged"
     else
         echo "Warning: /dev/dri not found, Intel GPU not available (WSL environment detected)"
     fi
     CMD="${CMD} -e ENABLE_NVIDIA=false"
-    # Check if Intel GPU VA-API is actually available
-    if vainfo 2>&1 | grep -q "iHD.*VAEntrypoint"; then
-        CMD="${CMD} -e LIBVA_DRIVER_NAME=iHD"
+    INTEL_FORCE_VAAPI="${INTEL_FORCE_VAAPI:-true}"
+    if [ "${INTEL_FORCE_VAAPI}" = "true" ]; then
+        CMD="${CMD} -e LIBVA_DRIVER_NAME=${LIBVA_DRIVER_NAME:-iHD}"
         VIDEO_ENCODER="vah264enc"
-        echo "Using Intel GPU with VA-API hardware acceleration (Quick Sync Video)"
+        if command -v vainfo >/dev/null 2>&1; then
+            if vainfo 2>&1 | grep -q "iHD.*VAEntrypoint"; then
+                echo "Using Intel GPU with VA-API hardware acceleration (Quick Sync Video)"
+            else
+                echo "Intel VA-API check failed, but forcing hardware encoder (set INTEL_FORCE_VAAPI=false to fall back)"
+            fi
+        else
+            echo "vainfo not available, assuming Intel VA-API works (INTEL_FORCE_VAAPI=true)"
+        fi
     else
-        echo "Warning: Intel VA-API not available, falling back to software encoding"
-        VIDEO_ENCODER="x264enc"
-        echo "Using software encoding (x264) for Intel GPU mode"
+        # Check if Intel GPU VA-API is actually available
+        if command -v vainfo >/dev/null 2>&1 && vainfo 2>&1 | grep -q "iHD.*VAEntrypoint"; then
+            CMD="${CMD} -e LIBVA_DRIVER_NAME=iHD"
+            VIDEO_ENCODER="vah264enc"
+            echo "Using Intel GPU with VA-API hardware acceleration (Quick Sync Video)"
+        else
+            echo "Warning: Intel VA-API not available, falling back to software encoding"
+            VIDEO_ENCODER="x264enc"
+            echo "Using software encoding (x264) for Intel GPU mode"
+        fi
     fi
 elif [ "${GPU_VENDOR}" = "amd" ]; then
     # AMD GPU - use for rendering but software encoding if VA-API not working
@@ -384,8 +400,31 @@ elif [ "${GPU_VENDOR}" = "amd" ]; then
         CMD="${CMD} --device=/dev/kfd:rwm"
     fi
     CMD="${CMD} -e ENABLE_NVIDIA=false"
-    VIDEO_ENCODER="x264enc"
-    echo "Using AMD GPU for rendering with software encoding (x264)"
+    AMD_FORCE_VAAPI="${AMD_FORCE_VAAPI:-true}"
+    AMD_LIBVA_DRIVER="${AMD_LIBVA_DRIVER:-radeonsi}"
+    if [ "${AMD_FORCE_VAAPI}" = "true" ]; then
+        CMD="${CMD} -e LIBVA_DRIVER_NAME=${AMD_LIBVA_DRIVER}"
+        VIDEO_ENCODER="vah264enc"
+        if command -v vainfo >/dev/null 2>&1; then
+            if vainfo 2>&1 | grep -q "VAProfileH264.*VAEntrypointEncSlice"; then
+                echo "Using AMD GPU with VA-API hardware encoding (radeonsi)"
+            else
+                echo "AMD VA-API check failed, but forcing hardware encoder (set AMD_FORCE_VAAPI=false to fall back)"
+            fi
+        else
+            echo "vainfo not available, assuming AMD VA-API works (AMD_FORCE_VAAPI=true)"
+        fi
+    else
+        if command -v vainfo >/dev/null 2>&1 && vainfo 2>&1 | grep -q "VAProfileH264.*VAEntrypointEncSlice"; then
+            CMD="${CMD} -e LIBVA_DRIVER_NAME=${AMD_LIBVA_DRIVER}"
+            VIDEO_ENCODER="vah264enc"
+            echo "Using AMD GPU with VA-API hardware encoding (radeonsi)"
+        else
+            echo "Warning: AMD VA-API not available, falling back to software encoding"
+            VIDEO_ENCODER="x264enc"
+            echo "Using software encoding (x264) for AMD GPU mode"
+        fi
+    fi
 elif [ "${GPU_VENDOR}" = "nvidia" ]; then
     # NVIDIA: require explicit --all or --num
     if [ "${GPU_ALL}" = "true" ]; then

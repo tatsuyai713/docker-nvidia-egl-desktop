@@ -680,6 +680,55 @@ VIDEO_BITRATE=4000        # CPUでより低いビットレート
 - `vp9enc` - ソフトウェアVP9
 - `vah264enc` - AMD/Intelハードウェアエンコーディング
 
+**Intelモード:** `--gpu intel` は既定で VA-API ハードウェアエンコーディング（`vah264enc`）を有効化します。  
+ソフトウェアエンコード（`x264enc`）に戻したい場合は `INTEL_FORCE_VAAPI=false ./start-container.sh --gpu intel` のように指定してください。
+
+**AMDモード:** `--gpu amd` も既定で VA-API ハードウェアエンコーディング（`LIBVA_DRIVER_NAME=radeonsi`, `vah264enc`）を利用します。  
+ソフトウェアエンコードに切り替える場合は `AMD_FORCE_VAAPI=false ./start-container.sh --gpu amd`、または `AMD_LIBVA_DRIVER` を必要に応じて上書きしてください。
+
+### ハードウェアエンコーダの確認方法
+
+すべての GPU モード共通:
+
+```bash
+# Selkies が使用している設定を確認
+docker exec devcontainer-egl-desktop-$(whoami) env | grep -E 'SELKIES_ENCODER|LIBVA_DRIVER_NAME'
+./logs-container.sh | grep -i encoder
+```
+
+**Intel（VA-API / Quick Sync）**
+
+```bash
+sudo apt update
+sudo apt install intel-gpu-tools
+sudo intel_gpu_top
+```
+
+- `./start-container.sh --gpu intel` を実行し、動画再生などで負荷をかけると `intel_gpu_top` の `Video/0` や `VideoEnhance/0` が上昇します。
+- コンテナ内で `vainfo | grep -i VAEntrypointEnc` を実行し、iHD ドライバーが H.264 エンコードを提供していることも確認できます。
+
+**AMD（VA-API / radeonsi）**
+
+```bash
+sudo apt update
+sudo apt install radeontop
+sudo radeontop
+```
+
+- `./start-container.sh --gpu amd` 実行中に `radeontop` の `vce` / `vcn` 項目が動いていればハードウェアエンコードが使われています。
+- コンテナ内では `vainfo | grep -i VAEntrypointEnc` で VA-API の H.264 エンコードエントリポイントを確認できます。
+
+**NVIDIA（NVENC）**
+
+```bash
+# nvidia-smi が無い場合はドライバーに合わせた utils パッケージをインストール
+sudo apt update
+sudo apt install nvidia-utils-535   # ドライバーのバージョンに合わせて変更
+watch -n1 nvidia-smi dmon -s pucvmt
+```
+
+- `./start-container.sh --gpu nvidia --all` などで NVIDIA モードを起動し、`nvidia-smi dmon`（または通常の `nvidia-smi`）で ENC 利用率が上がることを確認します。
+
 ### オーディオ設定
 
 **ディスプレイモード別音声サポート:**
@@ -1017,7 +1066,9 @@ setxkbmap -layout jp -model jp106 -query
 
 - Selkies はコンテナ内で Xvfb + VirtualGL によって KDE デスクトップを実行しており、実際の Xorg/DRI3 バックエンドが存在しません。そのため Vulkan アプリは `No DRI3 support detected` などを出して graphics/present 両方を兼ねるキューを見つけられず終了します。  
 - Vulkan のプレゼンテーションには DRI3/DRM と実ディスプレイサーバが必須で、Selkies EGL パイプラインの対象外です。  
-- 回避策：Vulkan ワークロードはホスト上で直接実行するか、実際の Xorg セッションに接続されたコンテナ（KasmVNC/GLX モードなど）で実行してください。WebRTC Selkies セッション内では動作しません。
+- **NVIDIA GPU**: NVIDIA コンテナツールキット（nvidia-docker）使用時は Vulkan が動作します。ドライバーが適切な Vulkan ICD とプレゼンテーションサポートを提供するためです。  
+- **Intel/AMD GPU**: Xvfb または Xorg のどちらを使用しても、統合グラフィックスがホスト Xorg と共有され DRM アクセスが制限されるため、コンテナ内で Vulkan プレゼンテーションが失敗します。  
+- 回避策：Vulkan ワークロードはホスト上で直接実行するか、適切なドライバーで NVIDIA GPU を使用してください。コンテナ化環境では Vulkan を避けてください。
 
 ### イメージの再ビルド
 
