@@ -53,7 +53,39 @@ export PULSE_SERVER="${PULSE_SERVER:-unix:${PULSE_RUNTIME_PATH:-${XDG_RUNTIME_DI
 # Check if NVIDIA support is enabled (default: true for backward compatibility)
 export ENABLE_NVIDIA="${ENABLE_NVIDIA:-true}"
 
-if [ "$(echo ${ENABLE_NVIDIA} | tr '[:upper:]' '[:lower:]')" = "true" ] && { [ -z "$(ldconfig -N -v $(sed 's/:/ /g' <<< $LD_LIBRARY_PATH) 2>/dev/null | grep 'libEGL_nvidia.so.0')" ] || [ -z "$(ldconfig -N -v $(sed 's/:/ /g' <<< $LD_LIBRARY_PATH) 2>/dev/null | grep 'libGLX_nvidia.so.0')" ]; }; then
+# Clean up any stale Vulkan ICD configuration from previous runs
+if [ "$(echo ${ENABLE_NVIDIA} | tr '[:upper:]' '[:lower:]')" != "true" ]; then
+  # NVIDIA support is explicitly disabled, remove NVIDIA Vulkan ICD
+  echo 'NVIDIA support is disabled (ENABLE_NVIDIA=false). Using software rendering or other GPU vendors.'
+  if command -v sudo >/dev/null 2>&1; then
+    sudo rm -f /etc/vulkan/icd.d/nvidia_icd.json 2>/dev/null || true
+  else
+    rm -f /etc/vulkan/icd.d/nvidia_icd.json 2>/dev/null || true
+  fi
+fi
+
+# Refresh ldconfig cache to detect NVIDIA libraries mounted by container runtime
+if command -v ldconfig >/dev/null 2>&1; then
+  ldconfig 2>/dev/null || true
+fi
+
+# Check if NVIDIA GPU is actually available before attempting driver installation
+NVIDIA_GPU_PRESENT=false
+if [ "$(echo ${ENABLE_NVIDIA} | tr '[:upper:]' '[:lower:]')" = "true" ]; then
+  # Check multiple indicators of NVIDIA GPU presence
+  if [ -f "/proc/driver/nvidia/version" ] || \
+     command -v nvidia-smi >/dev/null 2>&1 || \
+     [ -f "/usr/lib/x86_64-linux-gnu/libGLX_nvidia.so.0" ] || \
+     [ -f "/usr/lib/aarch64-linux-gnu/libGLX_nvidia.so.0" ] || \
+     ldconfig -p | grep -q "libGLX_nvidia.so"; then
+    NVIDIA_GPU_PRESENT=true
+    echo 'NVIDIA GPU detected, proceeding with NVIDIA configuration'
+  else
+    echo 'NVIDIA GPU or drivers not detected, skipping NVIDIA configuration'
+  fi
+fi
+
+if [ "${NVIDIA_GPU_PRESENT}" = "true" ] && { [ -z "$(ldconfig -p | grep 'libEGL_nvidia.so.0')" ] || [ -z "$(ldconfig -p | grep 'libGLX_nvidia.so.0')" ]; }; then
   # Install NVIDIA userspace driver components including X graphic libraries, keep contents same between docker-selkies-glx-desktop and docker-selkies-egl-desktop
   export NVIDIA_DRIVER_ARCH="$(dpkg --print-architecture | sed -e 's/arm64/aarch64/' -e 's/armhf/32bit-ARM/' -e 's/i.*86/x86/' -e 's/amd64/x86_64/' -e 's/unknown/x86_64/')"
   if [ -z "${NVIDIA_DRIVER_VERSION}" ]; then
@@ -96,8 +128,108 @@ if [ "$(echo ${ENABLE_NVIDIA} | tr '[:upper:]' '[:lower:]')" = "true" ] && { [ -
   else
     echo 'NVIDIA driver installation file not found. If using NVIDIA GPUs, ensure drivers are pre-installed or mounted.'
   fi
-elif [ "$(echo ${ENABLE_NVIDIA} | tr '[:upper:]' '[:lower:]')" != "true" ]; then
-  echo 'NVIDIA support is disabled (ENABLE_NVIDIA=false). Using software rendering or other GPU vendors.'
+  
+  # Wait a moment for driver libraries to be fully loaded
+  sleep 0.5
+  
+  # Configure NVIDIA Vulkan ICD if driver is available
+  # Force recreation even if file exists to ensure correct configuration
+  # Run ldconfig to refresh library cache after driver installation
+  if command -v ldconfig >/dev/null 2>&1; then
+    ldconfig 2>/dev/null || true
+  fi
+  
+  # Check for NVIDIA libraries with multiple methods
+  NVIDIA_AVAILABLE=false
+  if ldconfig -p | grep -q libGLX_nvidia.so; then
+    NVIDIA_AVAILABLE=true
+  elif [ -f "/usr/lib/x86_64-linux-gnu/libGLX_nvidia.so.0" ] || [ -f "/usr/lib/aarch64-linux-gnu/libGLX_nvidia.so.0" ]; then
+    NVIDIA_AVAILABLE=true
+  fi
+  
+  if [ "${NVIDIA_AVAILABLE}" = "true" ]; then
+    echo 'Configuring NVIDIA Vulkan ICD'
+    VULKAN_API_VERSION=$(dpkg -s libvulkan1 2>/dev/null | grep -oP 'Version: [0-9|\.]+' | grep -oP '[0-9]+(\.[0-9]+)(\.[0-9]+)' || echo "1.3.0")
+    if command -v sudo >/dev/null 2>&1; then
+      sudo mkdir -p /etc/vulkan/icd.d/
+      sudo tee /etc/vulkan/icd.d/nvidia_icd.json > /dev/null << EOF
+{
+    "file_format_version" : "1.0.0",
+    "ICD": {
+        "library_path": "libGLX_nvidia.so.0",
+        "api_version" : "${VULKAN_API_VERSION}"
+    }
+}
+EOF
+      echo 'NVIDIA Vulkan ICD configured successfully at /etc/vulkan/icd.d/nvidia_icd.json'
+      # Verify the configuration
+      if [ -f "/etc/vulkan/icd.d/nvidia_icd.json" ]; then
+        echo "Vulkan ICD file contents:"
+        cat /etc/vulkan/icd.d/nvidia_icd.json
+      fi
+    else
+      echo 'sudo not available, cannot write Vulkan ICD configuration'
+    fi
+  else
+    echo 'NVIDIA Vulkan driver not found, skipping Vulkan ICD configuration. Using Mesa drivers.'
+    if command -v sudo >/dev/null 2>&1; then
+      sudo rm -f /etc/vulkan/icd.d/nvidia_icd.json 2>/dev/null || true
+    else
+      rm -f /etc/vulkan/icd.d/nvidia_icd.json 2>/dev/null || true
+    fi
+  fi
+elif [ "${NVIDIA_GPU_PRESENT}" = "true" ]; then
+  # NVIDIA drivers are already installed (detected in ldconfig cache or by file presence)
+  echo 'NVIDIA drivers already present, skipping installation'
+  
+  # Wait a moment for driver libraries to be fully loaded
+  sleep 0.5
+  
+  # Configure NVIDIA Vulkan ICD
+  # Run ldconfig again to ensure cache is up to date
+  if command -v ldconfig >/dev/null 2>&1; then
+    ldconfig 2>/dev/null || true
+  fi
+  
+  # Check for NVIDIA libraries with multiple methods
+  NVIDIA_AVAILABLE=false
+  if ldconfig -p | grep -q libGLX_nvidia.so; then
+    NVIDIA_AVAILABLE=true
+  elif [ -f "/usr/lib/x86_64-linux-gnu/libGLX_nvidia.so.0" ] || [ -f "/usr/lib/aarch64-linux-gnu/libGLX_nvidia.so.0" ]; then
+    NVIDIA_AVAILABLE=true
+  fi
+  
+  if [ "${NVIDIA_AVAILABLE}" = "true" ]; then
+    echo 'Configuring NVIDIA Vulkan ICD'
+    VULKAN_API_VERSION=$(dpkg -s libvulkan1 2>/dev/null | grep -oP 'Version: [0-9|\.]+' | grep -oP '[0-9]+(\.[0-9]+)(\.[0-9]+)' || echo "1.3.0")
+    if command -v sudo >/dev/null 2>&1; then
+      sudo mkdir -p /etc/vulkan/icd.d/
+      sudo tee /etc/vulkan/icd.d/nvidia_icd.json > /dev/null << EOF
+{
+    "file_format_version" : "1.0.0",
+    "ICD": {
+        "library_path": "libGLX_nvidia.so.0",
+        "api_version" : "${VULKAN_API_VERSION}"
+    }
+}
+EOF
+      echo 'NVIDIA Vulkan ICD configured successfully at /etc/vulkan/icd.d/nvidia_icd.json'
+      # Verify the configuration
+      if [ -f "/etc/vulkan/icd.d/nvidia_icd.json" ]; then
+        echo "Vulkan ICD file contents:"
+        cat /etc/vulkan/icd.d/nvidia_icd.json
+      fi
+    else
+      echo 'sudo not available, cannot write Vulkan ICD configuration'
+    fi
+  else
+    echo 'NVIDIA Vulkan driver not found after installation check, skipping Vulkan ICD configuration. Using Mesa drivers.'
+    if command -v sudo >/dev/null 2>&1; then
+      sudo rm -f /etc/vulkan/icd.d/nvidia_icd.json 2>/dev/null || true
+    else
+      rm -f /etc/vulkan/icd.d/nvidia_icd.json 2>/dev/null || true
+    fi
+  fi
 fi
 
 # Run X server with RANDR support for dynamic resolution changes
@@ -185,7 +317,7 @@ fi
 # Use VirtualGL to run the KDE desktop environment with OpenGL if the GPU is available, otherwise use OpenGL with llvmpipe
 export XDG_SESSION_ID="${DISPLAY#*:}"
 export QT_LOGGING_RULES="${QT_LOGGING_RULES:-*.debug=false;qt.qpa.*=false}"
-if [ "$(echo ${ENABLE_NVIDIA} | tr '[:upper:]' '[:lower:]')" = "true" ] && [ -n "$(nvidia-smi --query-gpu=uuid --format=csv,noheader 2>/dev/null | head -n1)" ]; then
+if [ "${NVIDIA_GPU_PRESENT}" = "true" ] && [ -n "$(nvidia-smi --query-gpu=uuid --format=csv,noheader 2>/dev/null | head -n1)" ]; then
   echo "Starting desktop with NVIDIA GPU acceleration via VirtualGL"
   export VGL_FPS="${DISPLAY_REFRESH}"
   /usr/bin/vglrun -d "${VGL_DISPLAY:-egl}" +wm /usr/bin/dbus-launch --exit-with-session /usr/bin/startplasma-x11 &
