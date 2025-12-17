@@ -30,7 +30,7 @@ docker pull ghcr.io/tatsuyai713/devcontainer-ubuntu-egl-desktop-base:24.04
 # 7) noVNCを短縮オプションで起動（Intel）
 ./start-container.sh --gpu intel -v novnc
 
-# 8) Xorgで起動（Intel、Vulkan対応）
+# 8) Xorgで起動（Intel）
 ./start-container.sh --gpu intel --xorg
 
 # 9) ブラウザで開く（例：UID 1000 の場合）
