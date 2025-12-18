@@ -1,0 +1,41 @@
+{
+  "name": "EGL Desktop (intel)",
+  "dockerComposeFile": [
+    "../docker-compose.user.yml",
+    "docker-compose.override.yml"
+  ],
+  "service": "egl",
+  "workspaceFolder": "/home/tatsuyai/workspace",
+  "runServices": ["egl"],
+  "initializeCommand": "bash .devcontainer/sync-env.sh",
+  "overrideCommand": false,
+  "shutdownAction": "stopCompose",
+  "forwardPorts": [
+    11000,
+    6900,
+    3000,
+    4900,
+    12000
+  ],
+  "portsAttributes": {
+    "11000": {
+      "label": "Web UI",
+      "onAutoForward": "notify"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode-remote.remote-containers",
+        "ms-python.python",
+        "ms-python.vscode-pylance"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+  "remoteUser": "tatsuyai",
+  "containerUser": "tatsuyai",
+  "postCreateCommand": "echo 'Dev container is ready!'"
+}

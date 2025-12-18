@@ -19,7 +19,9 @@ nohup.out
 *.bak
 *~
 .DS_Store
+.pulse-host/
 
 # Environment files
+.env
 .env.local
 .env.*.local

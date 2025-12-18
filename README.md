@@ -497,6 +497,85 @@ The start script will detect mode mismatch and show a helpful error message with
 # Use HTTPS
 ./generate-ssl-cert.sh
 ./start-container.sh --gpu nvidia --all
+```
+
+---
+
+## Alternative Usage Methods
+
+This project provides multiple ways to run the container, choose the method that best fits your workflow:
+
+### 1. Script-Based (Recommended for Quick Start)
+
+Use the `start-container.sh` script for the simplest setup:
+
+```bash
+./start-container.sh --gpu nvidia --all --vnc-type selkies
+```
+
+**Pros:**
+- Simplest to use
+- Automatic configuration
+- Built-in validation and error messages
+- Automatic container detection and restart
+
+**See full documentation above** for all script options.
+
+### 2. Docker Compose
+
+Use Docker Compose for more advanced configurations:
+
+```bash
+# Set environment variables first
+source <(./compose-env.sh --gpu nvidia --all --vnc-type selkies)
+
+# Start container
+docker-compose -f docker-compose.user.yml up -d
+
+# Stop container
+docker-compose -f docker-compose.user.yml down
+```
+
+**Pros:**
+- Standard Docker Compose workflow
+- Easy to integrate with other services
+- Configuration file based
+- Better for multi-container setups
+
+**See [Docker Compose Usage Guide](docs/docker-compose-usage.md)** for detailed instructions.
+
+### 3. VS Code Dev Container
+
+Use VS Code's Dev Container feature for integrated development:
+
+```bash
+# Create devcontainer configuration
+./create-devcontainer-config.sh
+
+# Then in VS Code:
+# F1 → "Dev Containers: Reopen in Container"
+```
+
+**Pros:**
+- Integrated with VS Code
+- Automatic port forwarding
+- Extension management
+- Seamless development experience
+- Works with VS Code Remote features
+
+**See [VS Code Dev Container Usage Guide](docs/vscode-devcontainer-usage.md)** for detailed instructions.
+
+### Comparison Table
+
+| Method | Best For | Complexity | GPU Support | Multi-User |
+|--------|----------|------------|-------------|------------|
+| Script | Quick start, local development | ⭐ Easy | Full | ✅ UID-based ports |
+| Docker Compose | Service integration, automation | ⭐⭐ Medium | Full | ✅ UID-based ports |
+| VS Code Dev Container | Development, debugging | ⭐⭐ Medium | Full | ✅ UID-based ports |
+
+---
+
+### Common Options (Script-Based)
 
 # Use a different port
 HTTPS_PORT=9090 ./start-container.sh --gpu nvidia --all
@@ -1214,7 +1293,6 @@ docker-selkies-egl-desktop/
 ├── generate-ssl-cert.sh           # Generate SSL certificate
 ├── docker-compose.yml             # Docker Compose config (base image)
 ├── docker-compose.user.yml        # Docker Compose config (user image)
-├── egl.yml                        # Alternative compose config
 ├── ssl/                           # SSL certificates (auto-detected)
 │   ├── cert.pem
 │   └── key.pem

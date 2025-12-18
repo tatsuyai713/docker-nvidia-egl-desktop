@@ -1,0 +1,7 @@
+version: '3.8'
+
+services:
+  egl:
+    container_name: ${DEVCONTAINER_CONTAINER_NAME:-devcontainer-egl-desktop-${USER}-devcontainer}
+    volumes:
+      - ..:/home/tatsuyai/workspace:cached

@@ -489,7 +489,7 @@ SelkiesとKasmVNCを切り替える必要がある場合：
 
 startスクリプトはモードの不一致を検出し、手順付きの役立つエラーメッセージを表示します。
 
-### 一般的なオプション
+### 一般的なオプション（スクリプトベース）
 
 ```bash
 # HTTPSを使用
@@ -508,7 +508,82 @@ DETACHED=false ./start-container.sh --gpu nvidia --all
 # カスタムコンテナ名
 CONTAINER_NAME=my-desktop ./start-container.sh --gpu nvidia --all
 ```
+
+---
+
+## 代替使用方法
+
+このプロジェクトは、複数の方法でコンテナを実行できます。ワークフローに最適な方法を選択してください：
+
+### 1. スクリプトベース（クイックスタートに推奨）
+
+最もシンプルなセットアップには、`start-container.sh`スクリプトを使用します：
+
+```bash
+./start-container.sh --gpu nvidia --all --vnc-type selkies
 ```
+
+**メリット:**
+- 最も使いやすい
+- 自動設定
+- 組み込みの検証とエラーメッセージ
+- コンテナの自動検出と再起動
+
+**すべてのスクリプトオプションについては、上記の完全なドキュメントを参照してください。**
+
+### 2. Docker Compose
+
+より高度な設定にはDocker Composeを使用します：
+
+```bash
+# まず環境変数を設定
+source <(./compose-env.sh --gpu nvidia --all --vnc-type selkies)
+
+# コンテナを起動
+docker-compose -f docker-compose.user.yml up -d
+
+# コンテナを停止
+docker-compose -f docker-compose.user.yml down
+```
+
+**メリット:**
+- 標準的なDocker Composeワークフロー
+- 他のサービスとの統合が容易
+- 設定ファイルベース
+- 複数コンテナのセットアップに最適
+
+**詳細については、[Docker Compose使用ガイド](docs/docker-compose-usage.md)を参照してください。**
+
+### 3. VS Code Dev Container
+
+統合開発にはVS CodeのDev Container機能を使用します：
+
+```bash
+# devcontainer設定を作成
+./create-devcontainer-config.sh
+
+# その後、VS Codeで:
+# F1 → "Dev Containers: Reopen in Container"
+```
+
+**メリット:**
+- VS Codeと統合
+- 自動ポート転送
+- 拡張機能管理
+- シームレスな開発体験
+- VS Code Remoteフィーチャーと連携
+
+**詳細については、[VS Code Dev Container使用ガイド](docs/vscode-devcontainer-usage.md)を参照してください。**
+
+### 比較表
+
+| 方法 | 最適な用途 | 複雑さ | GPUサポート | マルチユーザー |
+|------|----------|--------|-------------|--------------|
+| スクリプト | クイックスタート、ローカル開発 | ⭐ 簡単 | 完全 | ✅ UIDベースのポート |
+| Docker Compose | サービス統合、自動化 | ⭐⭐ 中程度 | 完全 | ✅ UIDベースのポート |
+| VS Code Dev Container | 開発、デバッグ | ⭐⭐ 中程度 | 完全 | ✅ UIDベースのポート |
+
+---
 
 ### コンテナの停止
 
@@ -1211,7 +1286,6 @@ docker-selkies-egl-desktop/
 ├── generate-ssl-cert.sh           # SSL証明書を生成
 ├── docker-compose.yml             # Docker Compose設定（ベースイメージ）
 ├── docker-compose.user.yml        # Docker Compose設定（ユーザーイメージ）
-├── egl.yml                        # 代替compose設定
 ├── ssl/                           # SSL証明書（自動検出）
 │   ├── cert.pem
 │   └── key.pem

@@ -1,96 +1,159 @@
 services:
   egl:
-    container_name: egl
-    hostname: egl
+    container_name: ${CONTAINER_NAME:-devcontainer-egl-desktop-${USER}}
+    hostname: ${CONTAINER_HOSTNAME:-egl}
     # Use user-specific image built with build-user-image.sh
-    # Set USER_IMAGE environment variable before running docker-compose
-    image: ${USER_IMAGE:-devcontainer-ubuntu-egl-desktop:24.04-${USER:-user}}
-    runtime: nvidia
+    image: ${USER_IMAGE:-devcontainer-ubuntu-egl-desktop-${USER}:24.04}
+    runtime: ${GPU_RUNTIME:-runc}
+    
+    # GPU configuration - For NVIDIA, uncomment runtime line below
+    # runtime: nvidia
+    
     ports:
-    - '8080:8080'
-    # Internal TURN server settings
-#    - '3478:3478'
-#    - '65532-65535:65532-65535'
-#    - '3478:3478/udp'
-#    - '65532-65535:65532-65535/udp'
+    # HTTPS/HTTP port (UID-based: 10000 + UID)
+    - '${HTTPS_PORT:-8080}:8080'
+    # KasmVNC ports (only used when VNC_TYPE=kasm)
+    - '${KASM_WEBSOCKET_PORT:-6900}:${KASM_WEBSOCKET_PORT:-6900}'
+    - '${KCLIENT_PORT:-3000}:${KCLIENT_PORT:-3000}'
+    - '${KASMAUDIO_PORT:-4900}:${KASMAUDIO_PORT:-4900}'
+    - '${NGINX_KASM_PORT:-12000}:${NGINX_KASM_PORT:-12000}'
+    # Internal TURN server ports (only used when VNC_TYPE=selkies and ENABLE_TURN=true)
+    - '${TURN_PORT:-3478}:3478'
+    - '${TURN_PORT:-3478}:3478/udp'
+    - '${UDP_PORT_START:-65532}-${UDP_PORT_END:-65535}:${UDP_PORT_START:-65532}-${UDP_PORT_END:-65535}/udp'
+    
     stdin_open: true
     tty: true
-    deploy:
-      resources:
-        reservations:
-          devices:
-          - driver: nvidia
-            count: 1
-            capabilities: [gpu]
+    
+    # GPU device configuration
+    # Note: For NVIDIA GPUs, uncomment the deploy section below and runtime above
+    # For Intel/AMD GPUs, the bind mount + cgroup rules below are sufficient
+#    deploy:
+#      resources:
+#        reservations:
+#          devices:
+#          - driver: nvidia
+#            count: all
+#            capabilities: [gpu]
+    
+    # Add video and render groups for GPU access
+    group_add:
+      - ${VIDEO_GID:-44}
+      - ${RENDER_GID:-109}
+    
+    # Allow DRM (226) devices inside the container when mounted via bind
+    device_cgroup_rules:
+      - 'c 226:* rwm'
+    
+    # Set to true for Intel GPU
+    privileged: ${PRIVILEGED:-false}
+    
     tmpfs:
     - '/dev/shm:rw'
+    
     volumes:
-    # Mount user home directory to persist data
-    - '${HOME}:/home/${USER}'
-#    - 'egl-cache-vol:/cache'
-    # Uncomment the below line to disable network isolation for WebRTC connectivity, display `:20` and `:21` should not be used in the host, may show an error if disallowed by the cluster
+    # Bind-mount /dev/dri for GPU access. create_host_path prevents docker compose
+    # from failing on hosts without GPU devices (e.g. WSL) by creating the
+    # directory when it does not exist.
+    - type: bind
+      source: /dev/dri
+      target: /dev/dri
+      bind:
+        create_host_path: true
+    # Mount user home directory as host_home
+    - type: bind
+      source: ${HOME}
+      target: /home/${USER}/host_home
+    # Mount custom SSL certificates (auto-created if missing)
+    - type: bind
+      source: ${SSL_CERT_DIR:-./ssl}
+      target: /etc/ssl/custom
+      read_only: true
+      bind:
+        create_host_path: true
+    # Mount host PulseAudio (for noVNC mode)
+    - type: bind
+      source: ${PULSE_PATH:-./.pulse-host}
+      target: /tmp/pulse-host
+      read_only: true
+      bind:
+        create_host_path: true
+    
+    # Uncomment the below line to disable network isolation for WebRTC connectivity
 #    network_mode: 'host'
+    
     environment:
-    - TZ=UTC
-    - DISPLAY_SIZEW=1920
-    - DISPLAY_SIZEH=1080
-    - DISPLAY_REFRESH=60
+    # Display settings
+    - TZ=${TZ:-UTC}
+    - DISPLAY_SIZEW=${DISPLAY_WIDTH:-1920}
+    - DISPLAY_SIZEH=${DISPLAY_HEIGHT:-1080}
+    - DISPLAY_REFRESH=${DISPLAY_REFRESH:-60}
     - DISPLAY_DPI=96
     - DISPLAY_CDEPTH=24
-    # Keep to default unless you know what you are doing with VirtualGL, `VGL_DISPLAY` should be set to either `egl[n]` or `/dev/dri/card[n]` only when the device was passed to the container
-#    - VGL_DISPLAY=egl
-    # Enable/disable NVIDIA GPU support (default: true)
-    - ENABLE_NVIDIA=${ENABLE_NVIDIA:-true}
-    # User password of container (set during image build)
+    - USE_XORG=${USE_XORG:-false}
+    
+    # Keyboard layout (auto-detected from host or set manually)
+    - KEYBOARD_LAYOUT=${KEYBOARD_LAYOUT:-us}
+    - KEYBOARD_VARIANT=${KEYBOARD_VARIANT:-}
+    - KEYBOARD_MODEL=${KEYBOARD_MODEL:-pc105}
+    
+    # GPU support (set by GPU_VENDOR: nvidia=true, others=false)
+    - ENABLE_NVIDIA=${ENABLE_NVIDIA:-false}
+    - NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-}
+    
+    # VA-API configuration (for Intel/AMD GPUs)
+    - LIBVA_DRIVER_NAME=${LIBVA_DRIVER_NAME:-}
+    
+    # User password (set during image build)
     - PASSWD=${USER_PASSWORD:-mypasswd}
-    # Uncomment to enable KasmVNC instead of Selkies, `SELKIES_BASIC_AUTH_PASSWORD` is used for authentication with KasmVNC, defaulting to `PASSWD` if not provided
-    # Uses: `SELKIES_ENABLE_BASIC_AUTH`, `SELKIES_BASIC_AUTH_USER`, `SELKIES_BASIC_AUTH_PASSWORD`, `SELKIES_ENABLE_RESIZE`, `SELKIES_ENABLE_HTTPS`, `SELKIES_HTTPS_CERT`, `SELKIES_HTTPS_KEY`
-#    - KASMVNC_ENABLE=true
+    
     # VNC type: selkies (default), kasm, novnc
-    - VNC_TYPE=selkies
-    # Number of threads for encoding frames with KasmVNC, default value is all threads
-#    - KASMVNC_THREADS=0
+    - VNC_TYPE=${VNC_TYPE:-selkies}
+    - KASMVNC_ENABLE=${KASMVNC_ENABLE:-false}
+    - KASMVNC_THREADS=${KASMVNC_THREADS:-0}
+    
     ###
-    # Selkies parameters, for additional configurations see `selkies-gstreamer --help`
+    # Selkies parameters
     ###
-    # Change `SELKIES_ENCODER` to `x264enc`, `vp8enc`, or `vp9enc` if using software fallback without allocated GPUs or your GPU does not support `H.264 (AVCHD)` under the `NVENC - Encoding` section in https://developer.nvidia.com/video-encode-and-decode-gpu-support-matrix-new
-    - SELKIES_ENCODER=nvh264enc
+    # Video encoder: nvh264enc (NVIDIA), vah264enc (Intel/AMD), x264enc (software)
+    - SELKIES_ENCODER=${VIDEO_ENCODER:-nvh264enc}
     - SELKIES_ENABLE_RESIZE=false
-    # Initial video bitrate in kilobits per second, may be changed later within web interface
-    - SELKIES_VIDEO_BITRATE=8000
-    # Initial frames per second, may be changed later within web interface
-    - SELKIES_FRAMERATE=60
-    # Initial audio bitrate in bits per second, may be changed later within web interface
-    - SELKIES_AUDIO_BITRATE=128000
-    # Uncomment if network conditions rapidly fluctuate
-#    - SELKIES_CONGESTION_CONTROL=true
-    # Enable Basic Authentication from the web interface
+    - SELKIES_VIDEO_BITRATE=${VIDEO_BITRATE:-8000}
+    - SELKIES_FRAMERATE=${FRAMERATE:-60}
+    - SELKIES_AUDIO_BITRATE=${AUDIO_BITRATE:-128000}
+    - SELKIES_CONGESTION_CONTROL=${SELKIES_CONGESTION_CONTROL:-false}
+    
+    # Authentication
     - SELKIES_ENABLE_BASIC_AUTH=true
-    # Defaults to `PASSWD` if unspecified
-#    - SELKIES_BASIC_AUTH_PASSWORD=mypasswd
-    # Enable HTTPS web interface from inside the container
-    - SELKIES_ENABLE_HTTPS=false
-    # Volume mount trusted HTTPS certificate to new path for no web browser warnings
-#    - SELKIES_HTTPS_CERT=/etc/ssl/certs/ssl-cert-snakeoil.pem
-#    - SELKIES_HTTPS_KEY=/etc/ssl/private/ssl-cert-snakeoil.key
+    - SELKIES_BASIC_AUTH_PASSWORD=${USER_PASSWORD:-mypasswd}
+
+    # HTTPS configuration
+    - SELKIES_ENABLE_HTTPS=${ENABLE_HTTPS:-true}
+    - SELKIES_HTTPS_CERT=${SELKIES_HTTPS_CERT:-}
+    - SELKIES_HTTPS_KEY=${SELKIES_HTTPS_KEY:-}
+    - SELKIES_ENABLE_RESIZE=${SELKIES_ENABLE_RESIZE:-true}
+
     ###
-    # Uncomment and configure below to use a TURN server for improved network compatibility
+    # TURN server configuration (for Selkies remote access)
     ###
-#    - SELKIES_TURN_HOST=turn.example.com
-#    - SELKIES_TURN_PORT=3478
-    # Change to `tcp` if the UDP protocol is throttled or blocked in your client network, or when the TURN server does not support UDP
-#    - SELKIES_TURN_PROTOCOL=udp
-    # You need a valid hostname and a certificate from authorities such as ZeroSSL or Let's Encrypt with your TURN server to enable TURN over TLS
-#    - SELKIES_TURN_TLS=false
-    # Internal TURN server settings, do not uncomment other TURN server settings below this when using an internal TURN server
-#    - TURN_MIN_PORT=65532
-#    - TURN_MAX_PORT=65535
-    # Provide only `SELKIES_TURN_SHARED_SECRET` for time-limited shared secret authentication or both `SELKIES_TURN_USERNAME` and `SELKIES_TURN_PASSWORD` for legacy long-term authentication, but do not provide both authentication methods at the same time
-#    - SELKIES_TURN_SHARED_SECRET=n0TaRealCoTURNAuthSecretThatIsSixtyFourLengthsLongPlaceholdPlace
-#    - SELKIES_TURN_USERNAME=username
-#    - SELKIES_TURN_PASSWORD=mypasswd
-    # TURN REST URI authentication, all TURN server settings above are ignored if enabled
-#    - 'SELKIES_TURN_REST_URI=http://localhost:8008'
+    - SELKIES_TURN_HOST=${SELKIES_TURN_HOST:-}
+    - SELKIES_TURN_PORT=${SELKIES_TURN_PORT:-}
+    - SELKIES_TURN_PROTOCOL=${SELKIES_TURN_PROTOCOL:-udp}
+    - SELKIES_TURN_TLS=false
+    
+    # Internal TURN server settings
+    - TURN_MIN_PORT=${UDP_PORT_START:-65532}
+    - TURN_MAX_PORT=${UDP_PORT_END:-65535}
+    - TURN_LISTENING_PORT=3478
+    - TURN_EXTERNAL_IP=${TURN_EXTERNAL_IP:-}
+    
+    # TURN authentication
+    - SELKIES_TURN_SHARED_SECRET=${SELKIES_TURN_SHARED_SECRET:-}
+    - SELKIES_TURN_USERNAME=${SELKIES_TURN_USERNAME:-}
+    - SELKIES_TURN_PASSWORD=${SELKIES_TURN_PASSWORD:-}
+    
+    # PulseAudio configuration (for noVNC)
+    - PULSE_SERVER=${CONTAINER_PULSE_SERVER:-${PULSE_SERVER:-}}
 
 #volumes:
 #  egl-cache-vol:
