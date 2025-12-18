@@ -1,4 +1,4 @@
-# docker-selkies-egl-desktop
+# devcontainer-egl-desktop
 
 **[日本語版 (Japanese)](README_ja.md)**
 
