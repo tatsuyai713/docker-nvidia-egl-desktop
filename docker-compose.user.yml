@@ -4,10 +4,6 @@ services:
     hostname: ${CONTAINER_HOSTNAME:-egl}
     # Use user-specific image built with build-user-image.sh
     image: ${USER_IMAGE:-devcontainer-ubuntu-egl-desktop-${USER}:24.04}
-    runtime: ${GPU_RUNTIME:-runc}
-    
-    # GPU configuration - For NVIDIA, uncomment runtime line below
-    # runtime: nvidia
     
     ports:
     # HTTPS/HTTP port (UID-based: 10000 + UID)
@@ -25,16 +21,15 @@ services:
     stdin_open: true
     tty: true
     
-    # GPU device configuration
-    # Note: For NVIDIA GPUs, uncomment the deploy section below and runtime above
+    # GPU configuration for NVIDIA (controlled by NVIDIA_VISIBLE_DEVICES env var)
     # For Intel/AMD GPUs, the bind mount + cgroup rules below are sufficient
-#    deploy:
-#      resources:
-#        reservations:
-#          devices:
-#          - driver: nvidia
-#            count: all
-#            capabilities: [gpu]
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - driver: nvidia
+            count: all
+            capabilities: [gpu]
     
     # Add video and render groups for GPU access
     group_add:
