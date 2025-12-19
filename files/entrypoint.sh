@@ -127,6 +127,7 @@ if [ "${NVIDIA_GPU_PRESENT}" = "true" ] && { [ -z "$(ldconfig -p | grep 'libEGL_
     rm -rf /tmp/NVIDIA* && cd ~
   else
     echo 'NVIDIA driver installation file not found. If using NVIDIA GPUs, ensure drivers are pre-installed or mounted.'
+    cd ~
   fi
   
   # Wait a moment for driver libraries to be fully loaded
