@@ -23,21 +23,30 @@ ARG IN_LANGUAGE=en_US:en
 LABEL maintainer="https://github.com/tatsuyai713"
 
 # Create user and configure sudo
-RUN groupadd -g ${USER_GID} ${USER_NAME} && \
-    useradd -m -s /bin/bash -u ${USER_UID} -g ${USER_GID} ${USER_NAME} && \
-    usermod -a -G adm,audio,cdrom,dialout,dip,fax,floppy,games,input,lp,plugdev,render,ssl-cert,sudo,tape,tty,video,voice ${USER_NAME} && \
-    echo "${USER_NAME} ALL=(ALL:ALL) NOPASSWD: ALL" >> /etc/sudoers && \
-    echo "${USER_NAME}:${USER_PASSWORD}" | chpasswd && \
-    # Set ownership of audio-related directories for the user
-    chown ${USER_UID}:${USER_GID} /var/run/pulse && \
-    chown -R ${USER_UID}:${USER_GID} /kasmbins && \
-    # Set ownership of kclient directory for runtime modifications
-    chown -R ${USER_UID}:${USER_GID} /kclient && \
-    # Create multi-user directories
-    mkdir -p /dev/shm /tmp/pulse-${USER_UID} /tmp/audio-${USER_UID} && \
-    chown ${USER_UID}:${USER_GID} /dev/shm /tmp/pulse-${USER_UID} /tmp/audio-${USER_UID}
+RUN set -eux; \
+    # Ensure a group with USER_GID exists; do NOT rename system groups (e.g. dialout).
+    if ! getent group "${USER_GID}" >/dev/null; then \
+        groupadd -g "${USER_GID}" "${USER_NAME}"; \
+    fi; \
+    \
+    useradd -m -s /bin/bash -u "${USER_UID}" -g "${USER_GID}" "${USER_NAME}"; \
+    \
+    # Add supplemental groups that actually exist in this image
+    EXTRA_GROUPS="adm,audio,cdrom,dialout,dip,fax,floppy,games,input,lp,plugdev,render,ssl-cert,sudo,tape,tty,video,voice"; \
+    for g in $(echo "$EXTRA_GROUPS" | tr ',' ' '); do \
+        if getent group "$g" >/dev/null; then usermod -a -G "$g" "${USER_NAME}"; fi; \
+    done; \
+    \
+    echo "${USER_NAME} ALL=(ALL:ALL) NOPASSWD: ALL" >> /etc/sudoers; \
+    echo "${USER_NAME}:${USER_PASSWORD}" | chpasswd; \
+    \
+    chown "${USER_UID}:${USER_GID}" /var/run/pulse; \
+    chown -R "${USER_UID}:${USER_GID}" /kasmbins; \
+    chown -R "${USER_UID}:${USER_GID}" /kclient; \
+    mkdir -p /dev/shm "/tmp/pulse-${USER_UID}" "/tmp/audio-${USER_UID}"; \
+    chown "${USER_UID}:${USER_GID}" /dev/shm "/tmp/pulse-${USER_UID}" "/tmp/audio-${USER_UID}"
 
-# Set timezone before installing packages
+    # Set timezone before installing packages
 RUN ln -snf "/usr/share/zoneinfo/${IN_TZ}" /etc/localtime && echo "${IN_TZ}" > /etc/timezone
 
 # Configure RIKEN mirror repository for faster downloads in Japan (JP locale only)

@@ -11,6 +11,21 @@ VNC_TYPE="selkies"  # one of: selkies, kasm, novnc
 ENABLE_TURN="true"
 USE_XORG="false"    # whether to use Xorg instead of Xvfb
 
+HOST_ARCH="$(uname -m)"
+SELKIES_SUPPORTED="true"
+case "${HOST_ARCH}" in
+    x86_64|amd64)
+        ;;
+    arm64|aarch64)
+        SELKIES_SUPPORTED="false"
+        VNC_TYPE="kasm"
+        echo "Selkies mode is unavailable on ${HOST_ARCH}; defaulting to VNC type 'kasm'."
+        ;;
+    *)
+        SELKIES_SUPPORTED="false"
+        ;;
+esac
+
 # Show usage
 show_usage() {
     echo "Usage: $0 [options]"
@@ -42,6 +57,10 @@ show_usage() {
     echo "  $0 --gpu intel --vnc-type novnc               # Use Intel GPU with noVNC"
     echo "  $0 --gpu nvidia --num 0,1 --vnc-type novnc    # Use NVIDIA GPUs 0 and 1 with noVNC"
     echo "  $0 --gpu intel --xorg                        # Use Intel GPU with Xorg"
+    if [ "${SELKIES_SUPPORTED}" != "true" ]; then
+        echo ""
+        echo "Note: Selkies mode is not supported on ${HOST_ARCH}. Use --vnc-type kasm or novnc."
+    fi
     echo ""
 }
 
@@ -124,6 +143,11 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+if [ "${VNC_TYPE}" = "selkies" ] && [ "${SELKIES_SUPPORTED}" != "true" ]; then
+    echo "Error: Selkies mode is not supported on ${HOST_ARCH}. Use --vnc-type kasm or novnc."
+    exit 1
+fi
 
 # Post-parse validation: ensure combinations are valid regardless of option order
 # If user provided --num or --all, they must be used with --gpu nvidia
