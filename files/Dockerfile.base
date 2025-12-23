@@ -658,7 +658,8 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         libxfixes3 \
         libxv1 \
         libxtst6 \
-        libxext6 && \RUN set -eux; \
+        libxext6 && \
+    set -eux; \
     UBUNTU_VERSION="$(. /etc/os-release && echo "${VERSION_ID}")"; \
     ARCH="$(dpkg --print-architecture)"; \
     case "${ARCH}" in amd64|arm64) ;; *) echo "Unsupported arch: ${ARCH} (supported: amd64/arm64)"; exit 1 ;; esac; \
