@@ -333,6 +333,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
     apt-get update && apt-get install --no-install-recommends -y \
         nodejs \
+        npm \
         build-essential && \
     mkdir -p /kclient && \
     echo "precedence ::ffff:0:0/96  100" >> /etc/gai.conf && \
