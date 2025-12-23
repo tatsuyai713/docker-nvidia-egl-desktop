@@ -29,6 +29,7 @@ echo "Nginx Port=${NGINX_KASM_PORT}, KasmVNC=${KASMVNC_PORT}, kclient=${KCLIENT_
 # Create user-specific nginx configuration
 cat > "${XDG_RUNTIME_DIR}/nginx/nginx-kclient.conf" << EOF
 pid ${XDG_RUNTIME_DIR}/nginx/nginx.pid;
+error_log /dev/stderr;
 
 events {
     worker_connections 768;
